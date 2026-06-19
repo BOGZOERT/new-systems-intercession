@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "393063456146",
+    "project_id": "rjd-ptb-employees",
+    "storage_bucket": "rjd-ptb-employees.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:393063456146:android:4aaf15036b2d5bd727754b",
+        "android_client_info": {
+          "package_name": "com.example.new_systems_intercession"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGP97xjL96uWKJoE9nk0ZQZFm_k4on9Gc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
