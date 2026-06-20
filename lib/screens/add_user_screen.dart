@@ -15,6 +15,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
   String _selectedRole = 'user';
+  int _selectedCategory = 4;
   bool _isLoading = false;
 
   @override
@@ -31,14 +32,12 @@ class _AddUserScreenState extends State<AddUserScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Создаём пользователя в Auth
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      // Добавляем данные в Firestore
       await FirebaseFirestore.instance
           .collection('users')
           .doc(credential.user!.uid)
@@ -46,6 +45,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         'email': _emailController.text.trim(),
         'full_name': _fullNameController.text.trim(),
         'role': _selectedRole,
+        'category': _selectedCategory,
       });
 
       if (mounted) {
@@ -74,6 +74,17 @@ class _AddUserScreenState extends State<AddUserScreen> {
     }
   }
 
+  Color _getCategoryColor(int category) {
+    switch (category) {
+      case 4: return Colors.blue;
+      case 5: return Colors.green;
+      case 6: return Colors.orange;
+      case 7: return Colors.purple;
+      case 8: return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,7 +96,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ФИО
               TextFormField(
                 controller: _fullNameController,
                 textCapitalization: TextCapitalization.words,
@@ -102,8 +112,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Email
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -119,8 +127,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Пароль
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -136,8 +142,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              // Роль
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 decoration: const InputDecoration(
@@ -152,17 +156,33 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 ],
                 onChanged: (v) => setState(() => _selectedRole = v!),
               ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                value: _selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Категория',
+                  prefixIcon: Icon(Icons.work),
+                  border: OutlineInputBorder(),
+                ),
+                items: [4, 5, 6, 7, 8].map((c) {
+                  return DropdownMenuItem(
+                    value: c,
+                    child: Row(
+                      children: [
+                        CircleAvatar(radius: 10, backgroundColor: _getCategoryColor(c)),
+                        const SizedBox(width: 8),
+                        Text('$c категория'),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => _selectedCategory = v!),
+              ),
               const SizedBox(height: 24),
-
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _addUser,
                 icon: _isLoading
-                    ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.person_add),
                 label: const Text('Добавить пользователя'),
                 style: ElevatedButton.styleFrom(

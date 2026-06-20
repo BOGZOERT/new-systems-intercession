@@ -32,7 +32,6 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  /// Загружает данные пользователя из Firestore
   Future<void> _loadAppUser(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
@@ -44,6 +43,7 @@ class AuthProvider extends ChangeNotifier {
           email: _firebaseUser?.email ?? '',
           fullName: '',
           role: AppRole.user,
+          category: 4,
         );
       }
     } catch (e) {
@@ -52,13 +52,24 @@ class AuthProvider extends ChangeNotifier {
         email: _firebaseUser?.email ?? '',
         fullName: '',
         role: AppRole.user,
+        category: 4,
       );
     }
     notifyListeners();
   }
 
-  /// Регистрация — теперь с ФИО
-  Future<bool> register(String email, String password, String fullName) async {
+  /// Обновить категорию пользователя
+  Future<void> updateCategory(int category) async {
+    if (_firebaseUser == null || _appUser == null) return;
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'category': category,
+    });
+    _appUser = _appUser!.copyWith(category: category);
+    notifyListeners();
+  }
+
+  /// Регистрация (категория выбирается при регистрации)
+  Future<bool> register(String email, String password, String fullName, int category) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -69,12 +80,12 @@ class AuthProvider extends ChangeNotifier {
         password: password,
       );
 
-      // Создаём запись в Firestore с ФИО и ролью user по умолчанию
       final newUser = AppUser(
         uid: credential.user!.uid,
         email: email.trim(),
         fullName: fullName.trim(),
         role: AppRole.user,
+        category: category,
       );
       await _firestore
           .collection('users')

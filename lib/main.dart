@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
-import 'providers/table_provider.dart';
-import 'repositories/firebase_worker_repository.dart';
+import 'providers/users_provider.dart';
 import 'screens/auth_screen.dart';
-import 'screens/table_screen.dart';
+import 'screens/calendar_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +15,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Включаем офлайн-режим Firestore
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
@@ -25,9 +23,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(
-          create: (_) => TableProvider(repository: FirebaseWorkerRepository()),
-        ),
+        ChangeNotifierProvider(create: (_) => UsersProvider()),
       ],
       child: const MyApp(),
     ),
@@ -44,9 +40,6 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
       home: const _AuthGate(),
-      routes: {
-        '/table': (_) => const TableScreen(),
-      },
     );
   }
 }
@@ -59,7 +52,7 @@ class _AuthGate extends StatelessWidget {
     final user = context.watch<AuthProvider>().firebaseUser;
 
     if (user != null) {
-      return const TableScreen();
+      return const CalendarScreen();
     }
 
     return const AuthScreen();

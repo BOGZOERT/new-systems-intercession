@@ -15,6 +15,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _fullNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
+  int _selectedCategory = 4;
 
   @override
   void dispose() {
@@ -37,7 +38,6 @@ class _AuthScreenState extends State<AuthScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Заголовок
                 Icon(Icons.table_chart, size: 80, color: Colors.blue.shade700),
                 const SizedBox(height: 16),
                 Text(
@@ -45,8 +45,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                const Text('Таблица смен',
-                    style: TextStyle(color: Colors.grey, fontSize: 16)),
+                const Text('Таблица смен', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 const SizedBox(height: 32),
 
                 // Ошибка
@@ -66,7 +65,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
 
-                // Поле ФИО (только при регистрации)
+                // ФИО (только при регистрации)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _fullNameController,
@@ -84,9 +83,36 @@ class _AuthScreenState extends State<AuthScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // Выбор категории
+                  DropdownButtonFormField<int>(
+                    value: _selectedCategory,
+                    decoration: const InputDecoration(
+                      labelText: 'Категория',
+                      prefixIcon: Icon(Icons.work),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [4, 5, 6, 7, 8].map((c) {
+                      return DropdownMenuItem(
+                        value: c,
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 10,
+                              backgroundColor: _getCategoryColor(c),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('$c категория'),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (v) => setState(() => _selectedCategory = v!),
+                  ),
+                  const SizedBox(height: 16),
                 ],
 
-                // Поле Email
+                // Email
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -103,7 +129,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Поле пароля
+                // Пароль
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
@@ -120,7 +146,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Кнопка Войти / Зарегистрироваться
+                // Кнопка
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -131,33 +157,16 @@ class _AuthScreenState extends State<AuthScreen> {
                       foregroundColor: Colors.white,
                     ),
                     child: authProvider.isLoading
-                        ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                        : Text(
-                      _isLogin ? 'Войти' : 'Зарегистрироваться',
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(_isLogin ? 'Войти' : 'Зарегистрироваться', style: const TextStyle(fontSize: 16)),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // Переключатель Вход / Регистрация
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _isLogin = !_isLogin;
-                    });
-                  },
-                  child: Text(
-                    _isLogin
-                        ? 'Нет аккаунта? Зарегистрироваться'
-                        : 'Есть аккаунт? Войти',
-                  ),
+                  onPressed: () => setState(() => _isLogin = !_isLogin),
+                  child: Text(_isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Есть аккаунт? Войти'),
                 ),
               ],
             ),
@@ -178,11 +187,22 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isLogin) {
       success = await authProvider.login(email, password);
     } else {
-      success = await authProvider.register(email, password, fullName);
+      success = await authProvider.register(email, password, fullName, _selectedCategory);
     }
 
     if (success && mounted) {
-      Navigator.pushReplacementNamed(context, '/table');
+      Navigator.pushReplacementNamed(context, '/');
+    }
+  }
+
+  Color _getCategoryColor(int category) {
+    switch (category) {
+      case 4: return Colors.blue;
+      case 5: return Colors.green;
+      case 6: return Colors.orange;
+      case 7: return Colors.purple;
+      case 8: return Colors.red;
+      default: return Colors.grey;
     }
   }
 }
