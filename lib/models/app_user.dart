@@ -6,6 +6,7 @@ class AppUser {
   final String fullName;
   final AppRole role;
   final int category;
+  final List<int> categories;
 
   const AppUser({
     required this.uid,
@@ -13,6 +14,7 @@ class AppUser {
     required this.fullName,
     required this.role,
     this.category = 4,
+    this.categories = const [4],
   });
 
   AppUser copyWith({
@@ -21,6 +23,7 @@ class AppUser {
     String? fullName,
     AppRole? role,
     int? category,
+    List<int>? categories,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -28,6 +31,7 @@ class AppUser {
       fullName: fullName ?? this.fullName,
       role: role ?? this.role,
       category: category ?? this.category,
+      categories: categories ?? this.categories,
     );
   }
 
@@ -44,12 +48,23 @@ class AppUser {
       default:
         role = AppRole.user;
     }
+
+    List<int> cats;
+    if (data['categories'] != null) {
+      cats = List<int>.from(data['categories']);
+    } else if (data['category'] != null) {
+      cats = [(data['category'] as num).toInt()];
+    } else {
+      cats = [4];
+    }
+
     return AppUser(
       uid: uid,
       email: data['email'] as String? ?? '',
       fullName: data['full_name'] as String? ?? '',
       role: role,
-      category: (data['category'] as num?)?.toInt() ?? 4,
+      category: (data['category'] as num?)?.toInt() ?? cats.first,
+      categories: cats,
     );
   }
 
@@ -59,6 +74,7 @@ class AppUser {
       'full_name': fullName,
       'role': role.name,
       'category': category,
+      'categories': categories,
     };
   }
 }

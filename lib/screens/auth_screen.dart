@@ -15,7 +15,20 @@ class _AuthScreenState extends State<AuthScreen> {
   final _fullNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
-  int _selectedCategory = 4;
+  int _currentCategory = 4;
+  final Map<int, bool> _categorySelections = {
+    4: false,
+    5: false,
+    6: false,
+    7: false,
+    8: false,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _categorySelections[4] = true;
+  }
 
   @override
   void dispose() {
@@ -23,6 +36,13 @@ class _AuthScreenState extends State<AuthScreen> {
     _passwordController.dispose();
     _fullNameController.dispose();
     super.dispose();
+  }
+
+  List<int> _getSelectedCategories() {
+    return _categorySelections.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
   }
 
   @override
@@ -48,7 +68,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 const Text('Таблица смен', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 const SizedBox(height: 32),
 
-                // Ошибка
                 if (authProvider.errorMessage != null)
                   Container(
                     width: double.infinity,
@@ -65,7 +84,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
 
-                // ФИО (только при регистрации)
                 if (!_isLogin) ...[
                   TextFormField(
                     controller: _fullNameController,
@@ -84,35 +102,63 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Выбор категории
+                  // Выбор категорий (галочки)
+                  const Text('Категории сотрудника',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Выберите все категории, по которым можете работать',
+                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  ..._categorySelections.entries.map((entry) {
+                    return CheckboxListTile(
+                      dense: true,
+                      title: Text('${entry.key} категория'),
+                      value: entry.value,
+                      activeColor: _getCategoryColor(entry.key),
+                      onChanged: (v) {
+                        setState(() {
+                          _categorySelections[entry.key] = v ?? false;
+                          if (!v! && _currentCategory == entry.key) {
+                            final first = _categorySelections.entries.firstWhere(
+                                  (e) => e.value,
+                              orElse: () => const MapEntry(4, true),
+                            );
+                            _currentCategory = first.key;
+                          }
+                        });
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 12),
+
+                  // Текущая категория на смене
                   DropdownButtonFormField<int>(
-                    value: _selectedCategory,
+                    value: _currentCategory,
                     decoration: const InputDecoration(
-                      labelText: 'Категория',
+                      labelText: 'Категория на текущей смене',
                       prefixIcon: Icon(Icons.work),
                       border: OutlineInputBorder(),
                     ),
-                    items: [4, 5, 6, 7, 8].map((c) {
-                      return DropdownMenuItem(
-                        value: c,
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 10,
-                              backgroundColor: _getCategoryColor(c),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('$c категория'),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() => _selectedCategory = v!),
+                    items: _categorySelections.entries
+                        .where((e) => e.value)
+                        .map((e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Row(
+                        children: [
+                          CircleAvatar(radius: 10, backgroundColor: _getCategoryColor(e.key)),
+                          const SizedBox(width: 8),
+                          Text('${e.key} категория'),
+                        ],
+                      ),
+                    ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _currentCategory = v);
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // Email
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -129,7 +175,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Пароль
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
@@ -146,7 +191,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Кнопка
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -179,6 +223,14 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _submit(AuthProvider authProvider) async {
     if (!_formKey.currentState!.validate()) return;
 
+    final selectedCategories = _getSelectedCategories();
+    if (!_isLogin && selectedCategories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите хотя бы одну категорию')),
+      );
+      return;
+    }
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final fullName = _fullNameController.text.trim();
@@ -187,7 +239,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isLogin) {
       success = await authProvider.login(email, password);
     } else {
-      success = await authProvider.register(email, password, fullName, _selectedCategory);
+      success = await authProvider.register(email, password, fullName, _currentCategory, selectedCategories);
     }
 
     if (success && mounted) {

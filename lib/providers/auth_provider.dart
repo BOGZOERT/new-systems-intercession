@@ -44,6 +44,7 @@ class AuthProvider extends ChangeNotifier {
           fullName: '',
           role: AppRole.user,
           category: 4,
+          categories: const [4],
         );
       }
     } catch (e) {
@@ -53,23 +54,14 @@ class AuthProvider extends ChangeNotifier {
         fullName: '',
         role: AppRole.user,
         category: 4,
+        categories: const [4],
       );
     }
     notifyListeners();
   }
 
-  /// Обновить категорию пользователя
-  Future<void> updateCategory(int category) async {
-    if (_firebaseUser == null || _appUser == null) return;
-    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
-      'category': category,
-    });
-    _appUser = _appUser!.copyWith(category: category);
-    notifyListeners();
-  }
-
-  /// Регистрация (категория выбирается при регистрации)
-  Future<bool> register(String email, String password, String fullName, int category) async {
+  /// Регистрация с несколькими категориями
+  Future<bool> register(String email, String password, String fullName, int category, List<int> categories) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -86,6 +78,7 @@ class AuthProvider extends ChangeNotifier {
         fullName: fullName.trim(),
         role: AppRole.user,
         category: category,
+        categories: categories,
       );
       await _firestore
           .collection('users')

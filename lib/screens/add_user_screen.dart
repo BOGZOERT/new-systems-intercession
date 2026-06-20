@@ -15,8 +15,21 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
   String _selectedRole = 'user';
-  int _selectedCategory = 4;
+  int _currentCategory = 4;
+  final Map<int, bool> _categorySelections = {
+    4: false,
+    5: false,
+    6: false,
+    7: false,
+    8: false,
+  };
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _categorySelections[4] = true;
+  }
 
   @override
   void dispose() {
@@ -26,8 +39,23 @@ class _AddUserScreenState extends State<AddUserScreen> {
     super.dispose();
   }
 
+  List<int> _getSelectedCategories() {
+    return _categorySelections.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+  }
+
   Future<void> _addUser() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final selectedCategories = _getSelectedCategories();
+    if (selectedCategories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите хотя бы одну категорию')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -45,7 +73,8 @@ class _AddUserScreenState extends State<AddUserScreen> {
         'email': _emailController.text.trim(),
         'full_name': _fullNameController.text.trim(),
         'role': _selectedRole,
-        'category': _selectedCategory,
+        'category': _currentCategory,
+        'categories': selectedCategories,
       });
 
       if (mounted) {
@@ -93,8 +122,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
               TextFormField(
                 controller: _fullNameController,
@@ -156,29 +184,64 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 ],
                 onChanged: (v) => setState(() => _selectedRole = v!),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+
+              // Категории
+              const Text('Категории сотрудника',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text('Выберите все категории, по которым может работать',
+                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 8),
+              ..._categorySelections.entries.map((entry) {
+                return CheckboxListTile(
+                  dense: true,
+                  title: Text('${entry.key} категория'),
+                  value: entry.value,
+                  activeColor: _getCategoryColor(entry.key),
+                  onChanged: (v) {
+                    setState(() {
+                      _categorySelections[entry.key] = v ?? false;
+                      if (!v! && _currentCategory == entry.key) {
+                        final first = _categorySelections.entries.firstWhere(
+                              (e) => e.value,
+                          orElse: () => const MapEntry(4, true),
+                        );
+                        _currentCategory = first.key;
+                      }
+                    });
+                  },
+                );
+              }),
+              const SizedBox(height: 12),
+
+              // Текущая категория
               DropdownButtonFormField<int>(
-                value: _selectedCategory,
+                value: _currentCategory,
                 decoration: const InputDecoration(
-                  labelText: 'Категория',
+                  labelText: 'Категория на текущей смене',
                   prefixIcon: Icon(Icons.work),
                   border: OutlineInputBorder(),
                 ),
-                items: [4, 5, 6, 7, 8].map((c) {
-                  return DropdownMenuItem(
-                    value: c,
-                    child: Row(
-                      children: [
-                        CircleAvatar(radius: 10, backgroundColor: _getCategoryColor(c)),
-                        const SizedBox(width: 8),
-                        Text('$c категория'),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (v) => setState(() => _selectedCategory = v!),
+                items: _categorySelections.entries
+                    .where((e) => e.value)
+                    .map((e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Row(
+                    children: [
+                      CircleAvatar(radius: 10, backgroundColor: _getCategoryColor(e.key)),
+                      const SizedBox(width: 8),
+                      Text('${e.key} категория'),
+                    ],
+                  ),
+                ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _currentCategory = v);
+                },
               ),
               const SizedBox(height: 24),
+
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _addUser,
                 icon: _isLoading
