@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/app_user.dart';
+import '../services/version_service.dart';
+import '../widgets/user_avatar.dar.dart';
 import 'add_user_screen.dart';
 import 'all_users_screen.dart';
 import 'day_table_screen.dart';
@@ -110,14 +112,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 borderRadius: BorderRadius.circular(20),
                 child: Chip(
-                  avatar: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: _getRoleColor(role),
-                    child: Text(
-                      _getInitials(appUser.fullName),
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                  avatar: UserAvatar(user: appUser, radius: 14),
                   label: Text(
                     appUser.fullName.isNotEmpty ? appUser.fullName : appUser.email,
                     style: const TextStyle(fontSize: 13),
@@ -305,30 +300,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           const Spacer(),
           const Divider(),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Календарь — главный экран', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Календарь — главный экран', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(
+                  'Версия ${VersionService.versionString}',
+                  style: const TextStyle(color: Colors.black, fontSize: 12),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
         ],
       ),
     );
-  }
-
-  Color _getRoleColor(AppRole role) {
-    switch (role) {
-      case AppRole.admin: return Colors.orange;
-      case AppRole.developer: return Colors.red;
-      case AppRole.user: return Colors.blue;
-    }
-  }
-
-  String _getInitials(String fullName) {
-    if (fullName.isEmpty) return '?';
-    final parts = fullName.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return fullName[0].toUpperCase();
   }
 }

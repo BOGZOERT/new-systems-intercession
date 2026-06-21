@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/users_provider.dart';
+import '../widgets/user_avatar.dar.dart';
 
 class ManageScheduleScreen extends StatefulWidget {
   final String date;
@@ -182,12 +183,10 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
                   ),
                 ],
               ),
-              secondary: CircleAvatar(
-                backgroundColor: _getCategoryColor(user.category),
-                child: Text(
-                  '${user.category}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                ),
+              secondary: UserAvatar(
+                user: user,
+                radius: 20,
+                defaultColor: _getCategoryColor(user.category),
               ),
               onChanged: (v) {
                 setState(() {

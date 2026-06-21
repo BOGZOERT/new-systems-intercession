@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/version_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -219,6 +220,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 TextButton(
                   onPressed: () => setState(() => _isLogin = !_isLogin),
                   child: Text(_isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Есть аккаунт? Войти'),
+                ),
+
+                const SizedBox(height: 24),
+
+                Text(
+                  'Версия ${VersionService.versionString}',
+                  style: const TextStyle(color: Colors.black, fontSize: 12),
                 ),
               ],
             ),

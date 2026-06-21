@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/users_provider.dart';
+import '../widgets/user_avatar.dar.dart';
 import 'user_profile_screen.dart';
 
 class AllUsersScreen extends StatefulWidget {
@@ -142,12 +143,10 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _getCategoryColor(user.category),
-          child: Text(
-            _getInitials(user.fullName),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
+        leading: UserAvatar(
+          user: user,
+          radius: 20,
+          defaultColor: _getCategoryColor(user.category),
         ),
         title: Row(
           children: [

@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/users_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/calendar_screen.dart';
+import 'services/version_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,8 @@ void main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
+
+  await VersionService.init();
 
   runApp(
     MultiProvider(
