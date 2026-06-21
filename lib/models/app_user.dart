@@ -7,6 +7,7 @@ class AppUser {
   final AppRole role;
   final int category;
   final List<int> categories;
+  final String photoUrl;
 
   const AppUser({
     required this.uid,
@@ -15,6 +16,7 @@ class AppUser {
     required this.role,
     this.category = 4,
     this.categories = const [4],
+    this.photoUrl = '',
   });
 
   AppUser copyWith({
@@ -24,6 +26,7 @@ class AppUser {
     AppRole? role,
     int? category,
     List<int>? categories,
+    String? photoUrl,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -32,6 +35,7 @@ class AppUser {
       role: role ?? this.role,
       category: category ?? this.category,
       categories: categories ?? this.categories,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 
@@ -65,6 +69,7 @@ class AppUser {
       role: role,
       category: (data['category'] as num?)?.toInt() ?? cats.first,
       categories: cats,
+      photoUrl: data['photo_url'] as String? ?? '',
     );
   }
 
@@ -75,6 +80,7 @@ class AppUser {
       'role': role.name,
       'category': category,
       'categories': categories,
+      'photo_url': photoUrl,
     };
   }
 }

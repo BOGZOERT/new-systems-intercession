@@ -45,6 +45,7 @@ class AuthProvider extends ChangeNotifier {
           role: AppRole.user,
           category: 4,
           categories: const [4],
+          photoUrl: '',
         );
       }
     } catch (e) {
@@ -55,12 +56,33 @@ class AuthProvider extends ChangeNotifier {
         role: AppRole.user,
         category: 4,
         categories: const [4],
+        photoUrl: '',
       );
     }
     notifyListeners();
   }
 
-  /// Регистрация с несколькими категориями
+  /// Обновить photoUrl в Firestore
+  Future<void> updatePhotoUrl(String photoUrl) async {
+    if (_firebaseUser == null || _appUser == null) return;
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'photo_url': photoUrl,
+    });
+    _appUser = _appUser!.copyWith(photoUrl: photoUrl);
+    notifyListeners();
+  }
+
+  /// Удалить photoUrl из Firestore
+  Future<void> removePhotoUrl() async {
+    if (_firebaseUser == null || _appUser == null) return;
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'photo_url': '',
+    });
+    _appUser = _appUser!.copyWith(photoUrl: '');
+    notifyListeners();
+  }
+
+  /// Регистрация
   Future<bool> register(String email, String password, String fullName, int category, List<int> categories) async {
     _isLoading = true;
     _errorMessage = null;
@@ -79,11 +101,9 @@ class AuthProvider extends ChangeNotifier {
         role: AppRole.user,
         category: category,
         categories: categories,
+        photoUrl: '',
       );
-      await _firestore
-          .collection('users')
-          .doc(credential.user!.uid)
-          .set(newUser.toFirestore());
+      await _firestore.collection('users').doc(credential.user!.uid).set(newUser.toFirestore());
 
       _isLoading = false;
       notifyListeners();
