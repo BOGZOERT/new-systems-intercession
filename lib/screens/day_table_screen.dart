@@ -65,6 +65,7 @@ class _DayTableScreenState extends State<DayTableScreen> {
 
   Color _getCategoryColor(int category) {
     switch (category) {
+      case 3: return Colors.teal;
       case 4: return Colors.blue;
       case 5: return Colors.green;
       case 6: return Colors.orange;

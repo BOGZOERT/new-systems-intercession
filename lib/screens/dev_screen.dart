@@ -28,7 +28,7 @@ class DevScreen extends StatelessWidget {
                       '🗑️ Очистить коллекцию schedule',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 18),
                     const Text(
                       'Удалит всё расписание.',
                       style: TextStyle(color: Colors.grey),
@@ -132,6 +132,7 @@ class _BuildStats extends StatelessWidget {
 
         final docs = snapshot.data!.docs;
         final total = docs.length;
+        final cat3 = docs.where((d) => d['category'] == 3).length;
 
         if (total == 0) {
           return const Text('Нет пользователей', style: TextStyle(color: Colors.grey));
@@ -143,6 +144,7 @@ class _BuildStats extends StatelessWidget {
 
         return Column(
           children: [
+            _statRow('3 категория', '$cat3'),
             _statRow('Всего пользователей', '$total'),
             _statRow('Пользователи', '$users'),
             _statRow('Администраторы', '$admins'),

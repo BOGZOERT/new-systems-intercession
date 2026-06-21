@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 class AddUserScreen extends StatefulWidget {
@@ -14,9 +15,11 @@ class _AddUserScreenState extends State<AddUserScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
+  bool _obscurePassword = true;
   String _selectedRole = 'user';
   int _currentCategory = 4;
   final Map<int, bool> _categorySelections = {
+    3: false,
     4: false,
     5: false,
     6: false,
@@ -60,15 +63,28 @@ class _AddUserScreenState extends State<AddUserScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
+      // Создаём вторичный Firebase App
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'SecondaryApp_${DateTime.now().millisecondsSinceEpoch}',
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // Создаём пользователя во вторичном app
+      await secondaryAuth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
+      // Получаем UID созданного пользователя
+      final newUser = secondaryAuth.currentUser;
+      final newUid = newUser!.uid;
+
+      // Сохраняем данные в Firestore (основной app)
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(credential.user!.uid)
+          .doc(newUid)
           .set({
         'email': _emailController.text.trim(),
         'full_name': _fullNameController.text.trim(),
@@ -77,9 +93,19 @@ class _AddUserScreenState extends State<AddUserScreen> {
         'categories': selectedCategories,
       });
 
+      // Выходим из вторичного app
+      await secondaryAuth.signOut();
+
+      // Удаляем вторичный app
+      await secondaryApp.delete();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Пользователь добавлен')),
+          const SnackBar(
+            content: Text('✅ Пользователь успешно зарегистрирован'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
         );
         Navigator.pop(context);
       }
@@ -95,9 +121,18 @@ class _AddUserScreenState extends State<AddUserScreen> {
         default:
           message = 'Ошибка: ${e.code}';
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ $message')),
-      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ $message'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Ошибка: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -105,6 +140,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
 
   Color _getCategoryColor(int category) {
     switch (category) {
+      case 3: return Colors.teal;
       case 4: return Colors.blue;
       case 5: return Colors.green;
       case 6: return Colors.orange;
@@ -144,7 +180,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Email нового пользователя',
                   prefixIcon: Icon(Icons.email),
                   border: OutlineInputBorder(),
                 ),
@@ -157,11 +193,15 @@ class _AddUserScreenState extends State<AddUserScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Пароль',
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: 'Пароль нового пользователя',
+                  prefixIcon: const Icon(Icons.lock),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Введите пароль';
@@ -186,7 +226,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Категории
               const Text('Категории сотрудника',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
@@ -215,7 +254,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
               }),
               const SizedBox(height: 12),
 
-              // Текущая категория
               DropdownButtonFormField<int>(
                 value: _currentCategory,
                 decoration: const InputDecoration(
@@ -247,7 +285,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
                 icon: _isLoading
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.person_add),
-                label: const Text('Добавить пользователя'),
+                label: const Text('Зарегистрировать пользователя'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,

@@ -15,8 +15,10 @@ class _AuthScreenState extends State<AuthScreen> {
   final _fullNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
+  bool _obscurePassword = true;
   int _currentCategory = 4;
   final Map<int, bool> _categorySelections = {
+    3: false,
     4: false,
     5: false,
     6: false,
@@ -102,7 +104,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Выбор категорий (галочки)
                   const Text('Категории сотрудника',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
@@ -131,7 +132,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   }),
                   const SizedBox(height: 12),
 
-                  // Текущая категория на смене
                   DropdownButtonFormField<int>(
                     value: _currentCategory,
                     decoration: const InputDecoration(
@@ -177,11 +177,19 @@ class _AuthScreenState extends State<AuthScreen> {
 
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
                     labelText: 'Пароль',
-                    prefixIcon: Icon(Icons.lock),
-                    border: OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Введите пароль';
@@ -249,6 +257,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Color _getCategoryColor(int category) {
     switch (category) {
+      case 3: return Colors.teal;
       case 4: return Colors.blue;
       case 5: return Colors.green;
       case 6: return Colors.orange;

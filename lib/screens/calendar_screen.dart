@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/app_user.dart';
 import 'add_user_screen.dart';
+import 'all_users_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
@@ -276,6 +277,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             leading: const Icon(Icons.table_chart),
             title: const Text('Настройка таблицы'),
             onTap: () => Navigator.pop(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people),
+            title: const Text('Все сотрудники'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AllUsersScreen()));
+            },
           ),
           ListTile(
             leading: const Icon(Icons.person_add),
