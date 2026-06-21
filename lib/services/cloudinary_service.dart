@@ -1,34 +1,55 @@
+import 'dart:convert';
 import 'dart:io';
-import 'package:cloudinary/cloudinary.dart';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class CloudinaryService {
-  late final Cloudinary _cloudinary;
+  final String _cloudName = 'dsbfuphyp';
+  final String _uploadPreset = 'avatars_preset';
 
-  CloudinaryService() {
-    _cloudinary = Cloudinary.signedConfig(
-      apiKey: '145147764492364',
-      apiSecret: 'REELR0U41xu5oMRVejSZ9iKpzC4',
-      cloudName: 'dsbfuphyp',
-    );
-  }
-
-  /// Загрузить фото и получить URL
-  Future<String> uploadPhoto(File file, String fileName) async {
-    final response = await _cloudinary.upload(
-      file: file.path,
-      fileName: fileName,
-      folder: 'avatars',
+  Future<String> uploadPhoto({
+    File? file,
+    Uint8List? bytes,
+  }) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$_cloudName/image/upload',
     );
 
-    if (response.isSuccessful) {
-      return response.secureUrl!;
-    } else {
-      throw Exception('Ошибка загрузки: ${response.error}');
+    try {
+      if (kIsWeb && bytes != null) {
+        final base64Image = base64Encode(bytes);
+        final response = await http.post(
+          uri,
+          body: {
+            'file': 'data:image/jpeg;base64,$base64Image',
+            'upload_preset': _uploadPreset,
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final json = jsonDecode(response.body);
+          return json['secure_url'];
+        }
+        throw Exception('Ошибка: ${response.statusCode} ${response.body}');
+      } else if (file != null) {
+        final request = http.MultipartRequest('POST', uri);
+        request.fields['upload_preset'] = _uploadPreset;
+        request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+        final streamedResponse = await request.send();
+        final responseBody = await streamedResponse.stream.bytesToString();
+
+        if (streamedResponse.statusCode == 200) {
+          final json = jsonDecode(responseBody);
+          return json['secure_url'];
+        }
+        throw Exception('Ошибка: ${streamedResponse.statusCode} $responseBody');
+      }
+
+      throw Exception('Нет данных для загрузки');
+    } catch (e) {
+      throw Exception('Ошибка загрузки: $e');
     }
-  }
-
-  /// Удалить фото
-  Future<void> deletePhoto(String publicId) async {
-    await _cloudinary.destroy(publicId);
   }
 }

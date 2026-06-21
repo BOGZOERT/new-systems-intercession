@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -39,7 +41,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               alignment: Alignment.bottomRight,
               children: [
                 InkWell(
-                  onTap: () => _pickImage(authProvider, appUser),
+                  onTap: () => _pickImage(authProvider),
                   borderRadius: BorderRadius.circular(60),
                   child: CircleAvatar(
                     key: ValueKey('photo_$_photoVersion'),
@@ -56,8 +58,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
                 InkWell(
                   onTap: hasPhoto
-                      ? () => _deletePhoto(authProvider, appUser)
-                      : () => _pickImage(authProvider, appUser),
+                      ? () => _deletePhoto(authProvider)
+                      : () => _pickImage(authProvider),
                   child: CircleAvatar(
                     radius: 18,
                     backgroundColor: hasPhoto ? Colors.red : Colors.blue,
@@ -119,7 +121,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Future<void> _pickImage(AuthProvider authProvider, AppUser appUser) async {
+  Future<void> _pickImage(AuthProvider authProvider) async {
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
@@ -127,13 +129,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
       setState(() => _isLoading = true);
 
-      final file = File(picked.path);
-      final fileName = 'user_${appUser.uid}_${DateTime.now().millisecondsSinceEpoch}';
+      String photoUrl;
 
-      // Загружаем в Cloudinary
-      final photoUrl = await _cloudinaryService.uploadPhoto(file, fileName);
+      if (kIsWeb) {
+        // Веб: читаем байты
+        final bytes = await picked.readAsBytes();
+        photoUrl = await _cloudinaryService.uploadPhoto(bytes: bytes);
+      } else {
+        // Мобильные: файл
+        final file = File(picked.path);
+        photoUrl = await _cloudinaryService.uploadPhoto(file: file);
+      }
 
-      // Сохраняем URL в Firestore
       await authProvider.updatePhotoUrl(photoUrl);
 
       setState(() {
@@ -156,7 +163,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  Future<void> _deletePhoto(AuthProvider authProvider, AppUser appUser) async {
+  Future<void> _deletePhoto(AuthProvider authProvider) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -175,32 +182,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     if (confirm != true) return;
 
-    try {
-      setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-      // Удаляем из Cloudinary
-      final publicId = 'avatars/user_${appUser.uid}';
-      await _cloudinaryService.deletePhoto(publicId);
+    await authProvider.removePhotoUrl();
 
-      // Убираем URL из Firestore
-      await authProvider.removePhotoUrl();
+    setState(() {
+      _photoVersion++;
+      _isLoading = false;
+    });
 
-      setState(() {
-        _photoVersion++;
-        _isLoading = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🗑️ Фото удалено')),
-        );
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      print('Ошибка удаления фото: $e');
-      // Даже если удаление из Cloudinary не сработало, убираем URL
-      await authProvider.removePhotoUrl();
-      setState(() => _photoVersion++);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('🗑️ Фото удалено')),
+      );
     }
   }
 
