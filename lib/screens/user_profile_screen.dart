@@ -201,6 +201,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Color _getRoleColor(AppRole role) {
     switch (role) {
       case AppRole.admin: return Colors.orange;
+      case AppRole.boss: return Colors.teal;
       case AppRole.developer: return Colors.red;
       case AppRole.user: return Colors.blue;
     }
@@ -209,6 +210,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _getRoleTitle(AppRole role) {
     switch (role) {
       case AppRole.user: return 'Пользователь';
+      case AppRole.boss: return 'Начальник';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
     }

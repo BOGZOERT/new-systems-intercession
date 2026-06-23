@@ -6,8 +6,8 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/users_provider.dart';
 import 'screens/auth_screen.dart';
+import 'screens/organization_screen.dart';
 import 'screens/calendar_screen.dart';
-import 'services/version_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +19,6 @@ void main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
-
-  await VersionService.init();
 
   runApp(
     MultiProvider(
@@ -54,10 +52,25 @@ class _AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().firebaseUser;
 
-    if (user != null) {
-      return const CalendarScreen();
+    if (user == null) {
+      // Не авторизован — показываем вход
+      return const AuthScreen();
     }
 
-    return const AuthScreen();
+    // Проверяем, выбрана ли организация
+    final appUser = context.watch<AuthProvider>().appUser;
+
+    if (appUser == null) {
+      // Ещё грузится
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (appUser.organizationId.isEmpty) {
+      // Организация не выбрана — показываем выбор
+      return const OrganizationScreen();
+    }
+
+    // Всё готово — показываем календарь
+    return const CalendarScreen();
   }
 }

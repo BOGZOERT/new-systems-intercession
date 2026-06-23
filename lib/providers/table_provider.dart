@@ -33,6 +33,8 @@ class TableProvider extends ChangeNotifier {
         return _allWorkers;
       case AppRole.admin:
         return _allWorkers;
+      case AppRole.boss:
+        return _allWorkers;
       case AppRole.user:
         return _allWorkers
             .where((w) => w.absenceReason != AbsenceReason.vacation)

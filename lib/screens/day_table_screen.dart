@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/users_provider.dart';
-import '../widgets/user_avatar.dar.dart';
+import '../widgets/user_avatar.dart';
 import 'manage_schedule_screen.dart';
 
 class DayTableScreen extends StatefulWidget {
@@ -81,6 +81,7 @@ class _DayTableScreenState extends State<DayTableScreen> {
       case AppRole.user: return 'Пользователь';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
+      case AppRole.boss: return 'Начальник';
     }
   }
 

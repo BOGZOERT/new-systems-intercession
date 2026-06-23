@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/users_provider.dart';
-import '../widgets/user_avatar.dar.dart';
+import '../widgets/user_avatar.dart';
 import 'user_profile_screen.dart';
 
 class AllUsersScreen extends StatefulWidget {
@@ -200,12 +200,9 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
           ),
         ),
         onTap: () {
-          // Открываем профиль пользователя
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => UserProfileScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const UserProfileScreen()),
           );
         },
       ),
@@ -228,6 +225,7 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
     switch (role) {
       case AppRole.admin: return Colors.orange;
       case AppRole.developer: return Colors.red;
+      case AppRole.boss: return Colors.teal;
       case AppRole.user: return Colors.blue;
     }
   }
@@ -237,15 +235,7 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
       case AppRole.user: return 'Пользователь';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
+      case AppRole.boss: return 'Начальник';
     }
-  }
-
-  String _getInitials(String fullName) {
-    if (fullName.isEmpty) return '?';
-    final parts = fullName.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return fullName[0].toUpperCase();
   }
 }

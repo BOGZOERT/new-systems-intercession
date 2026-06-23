@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/app_user.dart';
 import '../services/version_service.dart';
-import '../widgets/user_avatar.dar.dart';
+import '../widgets/user_avatar.dart';
 import 'add_user_screen.dart';
 import 'all_users_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
+import 'my_requests_screen.dart';
+import 'request_swap_screen.dart';
 import 'user_profile_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -79,6 +81,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
   }
 
+  Widget _buildRequestsBadge() {
+    final currentUser = context.read<AuthProvider>().appUser;
+    if (currentUser == null) return const SizedBox();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('swap_requests')
+          .where('to_user_id', isEqualTo: currentUser.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        if (count == 0) return const SizedBox();
+        return Container(
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(
+            color: Colors.red,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            '$count',
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -101,7 +131,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           },
         ),
         actions: [
-          // Профиль пользователя
           if (appUser != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -120,7 +149,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
             ),
-          // Боковая панель для admin/developer
           if (role == AppRole.admin || role == AppRole.developer)
             Builder(
               builder: (context) => IconButton(
@@ -131,24 +159,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
       endDrawer: (role == AppRole.admin || role == AppRole.developer)
-          ? _buildDrawer(context, role)
+          ? _buildDrawer(context, role, appUser)
           : null,
       body: Column(
         children: [
-          // Заголовки дней недели
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               children: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
                   .map((d) => Expanded(
                 child: Center(
-                  child: Text(d, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13)),
+                  child: Text(
+                    d,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13),
+                  ),
                 ),
               ))
                   .toList(),
             ),
           ),
-          // Сетка дней
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(4),
@@ -187,7 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         builder: (_) => ManageScheduleScreen(date: dateStr),
                       ),
                     );
-                    _loadSchedule(); // обновляем счётчики после возврата
+                    _loadSchedule();
                   }
                       : null,
                   child: Container(
@@ -221,7 +250,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ),
                             child: Text(
                               '$count',
-                              style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.green.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                       ],
@@ -252,7 +285,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AppRole role) {
+  Widget _buildDrawer(BuildContext context, AppRole role, AppUser? appUser) {
     return Drawer(
       child: Column(
         children: [
@@ -262,16 +295,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.settings, color: Colors.white, size: 40),
+                Icon(Icons.calendar_month, color: Colors.white, size: 40),
                 SizedBox(height: 8),
-                Text('Настройки', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('Меню', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               ],
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.table_chart),
-            title: const Text('Настройка таблицы'),
-            onTap: () => Navigator.pop(context),
           ),
           ListTile(
             leading: const Icon(Icons.people),
@@ -289,6 +317,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: const Text('Запросить замену'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestSwapScreen()));
+            },
+          ),
+          if (role == AppRole.admin || role == AppRole.developer || (appUser?.categories.contains(3) ?? false))
+            ListTile(
+              leading: const Icon(Icons.inbox),
+              title: const Text('Запросы на замену'),
+              trailing: _buildRequestsBadge(),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRequestsScreen()));
+              },
+            ),
           if (role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),

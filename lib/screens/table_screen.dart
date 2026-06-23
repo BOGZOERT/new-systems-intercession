@@ -344,18 +344,17 @@ class TableScreen extends StatelessWidget {
   String _roleTitle(AppRole role) {
     switch (role) {
       case AppRole.user: return 'Пользователь';
+      case AppRole.boss: return 'Начальник';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
     }
   }
   Color _getRoleColor(AppRole role) {
     switch (role) {
-      case AppRole.admin:
-        return Colors.orange;
-      case AppRole.developer:
-        return Colors.red;
-      case AppRole.user:
-        return Colors.blue;
+      case AppRole.admin: return Colors.orange;
+      case AppRole.developer: return Colors.red;
+      case AppRole.boss: return Colors.teal;
+      case AppRole.user: return Colors.blue;
     }
   }
 

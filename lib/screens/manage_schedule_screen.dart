@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/users_provider.dart';
-import '../widgets/user_avatar.dar.dart';
+import '../widgets/user_avatar.dart';
 
 class ManageScheduleScreen extends StatefulWidget {
   final String date;
@@ -79,6 +79,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
       case AppRole.admin: return Colors.orange;
       case AppRole.developer: return Colors.red;
       case AppRole.user: return Colors.blue;
+      case AppRole.boss: return Colors.blue;
     }
   }
 
@@ -98,6 +99,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
       case AppRole.user: return 'Пользователь';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
+      case AppRole.boss: return 'Начальник';
     }
   }
 

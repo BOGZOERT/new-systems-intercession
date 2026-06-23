@@ -19,6 +19,8 @@ class UserAvatar extends StatelessWidget {
         return Colors.orange;
       case AppRole.developer:
         return Colors.red;
+      case AppRole.boss:
+        return Colors.teal;
       case AppRole.user:
         return Colors.blue;
     }

@@ -1,4 +1,4 @@
-enum AppRole { user, admin, developer }
+enum AppRole { user, admin, developer, boss }
 
 class AppUser {
   final String uid;
@@ -8,6 +8,7 @@ class AppUser {
   final int category;
   final List<int> categories;
   final String photoUrl;
+  final String organizationId; // организация, к которой привязан пользователь
 
   const AppUser({
     required this.uid,
@@ -17,6 +18,7 @@ class AppUser {
     this.category = 4,
     this.categories = const [4],
     this.photoUrl = '',
+    this.organizationId = '',
   });
 
   AppUser copyWith({
@@ -27,6 +29,7 @@ class AppUser {
     int? category,
     List<int>? categories,
     String? photoUrl,
+    String? organizationId,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -36,6 +39,7 @@ class AppUser {
       category: category ?? this.category,
       categories: categories ?? this.categories,
       photoUrl: photoUrl ?? this.photoUrl,
+      organizationId: organizationId ?? this.organizationId,
     );
   }
 
@@ -48,6 +52,9 @@ class AppUser {
         break;
       case 'developer':
         role = AppRole.developer;
+        break;
+      case 'boss':
+        role = AppRole.boss;
         break;
       default:
         role = AppRole.user;
@@ -70,6 +77,7 @@ class AppUser {
       category: (data['category'] as num?)?.toInt() ?? cats.first,
       categories: cats,
       photoUrl: data['photo_url'] as String? ?? '',
+      organizationId: data['organization_id'] as String? ?? '',
     );
   }
 
@@ -81,6 +89,7 @@ class AppUser {
       'category': category,
       'categories': categories,
       'photo_url': photoUrl,
+      'organization_id': organizationId,
     };
   }
 }
