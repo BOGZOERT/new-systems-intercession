@@ -121,15 +121,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${_getMonthName(_currentMonth.month)} ${_currentMonth.year}'),
-        leading: IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () async {
-            await authProvider.logout();
-            if (context.mounted) {
-              Navigator.pushReplacementNamed(context, '/');
-            }
-          },
-        ),
         actions: [
           if (appUser != null)
             Padding(
@@ -149,18 +140,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
               ),
             ),
-          if (role == AppRole.admin || role == AppRole.developer)
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openEndDrawer(),
-              ),
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
+          ),
         ],
       ),
-      endDrawer: (role == AppRole.admin || role == AppRole.developer)
-          ? _buildDrawer(context, role, appUser)
-          : null,
+      endDrawer: _buildDrawer(context, role, appUser),
       body: Column(
         children: [
           Padding(
@@ -301,6 +289,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
+
+          // Все сотрудники — видно всем
           ListTile(
             leading: const Icon(Icons.people),
             title: const Text('Все сотрудники'),
@@ -309,14 +299,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AllUsersScreen()));
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.person_add),
-            title: const Text('Добавить пользователя'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
-            },
-          ),
+
+          // Добавить пользователя — только admin и developer
+          if (role == AppRole.admin || role == AppRole.developer)
+            ListTile(
+              leading: const Icon(Icons.person_add),
+              title: const Text('Добавить пользователя'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
+              },
+            ),
+
+          // Запросить замену — видно всем
           ListTile(
             leading: const Icon(Icons.swap_horiz),
             title: const Text('Запросить замену'),
@@ -325,7 +320,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestSwapScreen()));
             },
           ),
-          if (role == AppRole.admin || role == AppRole.developer || (appUser?.categories.contains(3) ?? false))
+
+          // Запросы на замену — 3 категория, admin, developer, boss
+          if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss || (appUser?.categories.contains(3) ?? false))
             ListTile(
               leading: const Icon(Icons.inbox),
               title: const Text('Запросы на замену'),
@@ -335,6 +332,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRequestsScreen()));
               },
             ),
+
+          // Инструменты разработчика — только developer
           if (role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),
@@ -344,8 +343,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const DevScreen()));
               },
             ),
+
           const Spacer(),
           const Divider(),
+
+          // Выход
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Выйти', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              Navigator.pop(context);
+              final authProvider = context.read<AuthProvider>();
+              await authProvider.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/');
+              }
+            },
+          ),
+          const Divider(),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -364,5 +380,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
     );
+  }
+
+  Color _getRoleColor(AppRole role) {
+    switch (role) {
+      case AppRole.admin: return Colors.orange;
+      case AppRole.developer: return Colors.red;
+      case AppRole.boss: return Colors.teal;
+      case AppRole.user: return Colors.blue;
+    }
+  }
+
+  String _getRoleTitle(AppRole role) {
+    switch (role) {
+      case AppRole.user: return 'Пользователь';
+      case AppRole.admin: return 'Администратор';
+      case AppRole.developer: return 'Разработчик';
+      case AppRole.boss: return 'Начальник';
+    }
   }
 }
