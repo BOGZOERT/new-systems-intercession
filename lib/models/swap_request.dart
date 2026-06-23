@@ -3,10 +3,11 @@ class SwapRequest {
   final String fromUserId;
   final String fromUserName;
   final int fromCategory;
-  final String date;
-  final String toUserId;
+  final String date;           // дата смены, которую хотят заменить
+  final String toUserId;       // кому адресован запрос (3 категория)
   final String toUserName;
-  final String status;
+  final String status;         // 'pending', 'accepted', 'rejected'
+  final String newDate;        // дата, на которую меняют (выбирает 3 категория)
   final DateTime createdAt;
 
   const SwapRequest({
@@ -18,6 +19,7 @@ class SwapRequest {
     required this.toUserId,
     required this.toUserName,
     required this.status,
+    this.newDate = '',
     required this.createdAt,
   });
 
@@ -31,6 +33,7 @@ class SwapRequest {
       toUserId: data['to_user_id'] as String? ?? '',
       toUserName: data['to_user_name'] as String? ?? '',
       status: data['status'] as String? ?? 'pending',
+      newDate: data['new_date'] as String? ?? '',
       createdAt: (data['created_at'] as dynamic).toDate(),
     );
   }
@@ -44,6 +47,7 @@ class SwapRequest {
       'to_user_id': toUserId,
       'to_user_name': toUserName,
       'status': status,
+      'new_date': newDate,
       'created_at': DateTime.now(),
     };
   }

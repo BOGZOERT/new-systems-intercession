@@ -10,8 +10,7 @@ import 'all_users_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
-import 'my_requests_screen.dart';
-import 'request_swap_screen.dart';
+import 'swaps_screen.dart';
 import 'user_profile_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -24,6 +23,8 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _currentMonth;
   Map<String, int> _workerCountByDay = {};
+  bool _multiSelectMode = false;
+  final Set<String> _selectedDates = {};
 
   @override
   void initState() {
@@ -69,6 +70,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _loadSchedule();
   }
 
+  void _toggleMultiSelect() {
+    setState(() {
+      _multiSelectMode = !_multiSelectMode;
+      if (!_multiSelectMode) _selectedDates.clear();
+    });
+  }
+
+  void _assignSelectedDates() {
+    if (_selectedDates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите хотя бы одну дату')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ManageScheduleScreen(date: _selectedDates.first, selectedDates: _selectedDates.toList()),
+      ),
+    ).then((_) {
+      _loadSchedule();
+      setState(() {
+        _multiSelectMode = false;
+        _selectedDates.clear();
+      });
+    });
+  }
+
   String _getMonthName(int month) {
     const months = [
       '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -79,34 +109,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   String _getDateStr(int day) {
     return '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
-  }
-
-  Widget _buildRequestsBadge() {
-    final currentUser = context.read<AuthProvider>().appUser;
-    if (currentUser == null) return const SizedBox();
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('swap_requests')
-          .where('to_user_id', isEqualTo: currentUser.uid)
-          .where('status', isEqualTo: 'pending')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
-        if (count == 0) return const SizedBox();
-        return Container(
-          padding: const EdgeInsets.all(6),
-          decoration: const BoxDecoration(
-            color: Colors.red,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            '$count',
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -126,17 +128,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UserProfileScreen()),
-                ),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen())),
                 borderRadius: BorderRadius.circular(20),
                 child: Chip(
                   avatar: UserAvatar(user: appUser, radius: 14),
-                  label: Text(
-                    appUser.fullName.isNotEmpty ? appUser.fullName : appUser.email,
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  label: Text(appUser.fullName.isNotEmpty ? appUser.fullName : appUser.email, style: const TextStyle(fontSize: 13)),
                 ),
               ),
             ),
@@ -151,16 +147,34 @@ class _CalendarScreenState extends State<CalendarScreen> {
       endDrawer: _buildDrawer(context, role, appUser),
       body: Column(
         children: [
+          // Режим выбора дат (для admin/developer/boss)
+          if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _toggleMultiSelect,
+                    icon: Icon(_multiSelectMode ? Icons.close : Icons.date_range),
+                    label: Text(_multiSelectMode ? 'Отмена' : 'Выбрать даты'),
+                  ),
+                  const Spacer(),
+                  if (_multiSelectMode && _selectedDates.isNotEmpty)
+                    ElevatedButton.icon(
+                      onPressed: _assignSelectedDates,
+                      icon: const Icon(Icons.person_add, size: 18),
+                      label: Text('Назначить (${_selectedDates.length})'),
+                    ),
+                ],
+              ),
+            ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             child: Row(
               children: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
                   .map((d) => Expanded(
                 child: Center(
-                  child: Text(
-                    d,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13),
-                  ),
+                  child: Text(d, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13)),
                 ),
               ))
                   .toList(),
@@ -176,44 +190,49 @@ class _CalendarScreenState extends State<CalendarScreen> {
               itemCount: firstWeekday - 1 + daysInMonth,
               itemBuilder: (context, index) {
                 final dayIndex = index - firstWeekday + 2;
-                if (dayIndex < 1 || dayIndex > daysInMonth) {
-                  return const SizedBox();
-                }
+                if (dayIndex < 1 || dayIndex > daysInMonth) return const SizedBox();
 
                 final dateStr = _getDateStr(dayIndex);
                 final count = _workerCountByDay[dateStr] ?? 0;
                 final today = DateTime.now();
-                final isToday = dayIndex == today.day &&
-                    _currentMonth.month == today.month &&
-                    _currentMonth.year == today.year;
+                final isToday = dayIndex == today.day && _currentMonth.month == today.month && _currentMonth.year == today.year;
+                final isSelected = _selectedDates.contains(dateStr);
 
                 return GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DayTableScreen(date: dateStr),
-                      ),
-                    );
+                    if (_multiSelectMode) {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedDates.remove(dateStr);
+                        } else {
+                          _selectedDates.add(dateStr);
+                        }
+                      });
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => DayTableScreen(date: dateStr)));
+                    }
                   },
-                  onLongPress: (role == AppRole.admin || role == AppRole.developer)
-                      ? () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ManageScheduleScreen(date: dateStr),
-                      ),
-                    );
+                  onLongPress: _multiSelectMode
+                      ? null
+                      : () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => ManageScheduleScreen(date: dateStr)));
                     _loadSchedule();
-                  }
-                      : null,
+                  },
                   child: Container(
                     margin: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: isToday ? Colors.blue.shade50 : Colors.white,
+                      color: isSelected
+                          ? Colors.blue.shade100
+                          : isToday
+                          ? Colors.blue.shade50
+                          : Colors.white,
                       border: Border.all(
-                        color: isToday ? Colors.blue : Colors.grey.shade300,
-                        width: isToday ? 2 : 1,
+                        color: isSelected
+                            ? Colors.blue
+                            : isToday
+                            ? Colors.blue
+                            : Colors.grey.shade300,
+                        width: isSelected || isToday ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -224,26 +243,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           '$dayIndex',
                           style: TextStyle(
                             fontSize: 18,
-                            fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                            color: isToday ? Colors.blue : Colors.black87,
+                            fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.blue : (isToday ? Colors.blue : Colors.black87),
                           ),
                         ),
-                        if (count > 0)
+                        if (isSelected)
+                          const Icon(Icons.check, color: Colors.blue, size: 16)
+                        else if (count > 0)
                           Container(
                             margin: const EdgeInsets.only(top: 2),
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.green.shade800,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(10)),
+                            child: Text('$count', style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold)),
                           ),
                       ],
                     ),
@@ -254,20 +265,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
-      floatingActionButton: Row(
+      floatingActionButton: _multiSelectMode
+          ? null
+          : Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FloatingActionButton.small(
-            heroTag: 'prev',
-            onPressed: _prevMonth,
-            child: const Icon(Icons.chevron_left),
-          ),
+          FloatingActionButton.small(heroTag: 'prev', onPressed: _prevMonth, child: const Icon(Icons.chevron_left)),
           const SizedBox(width: 16),
-          FloatingActionButton.small(
-            heroTag: 'next',
-            onPressed: _nextMonth,
-            child: const Icon(Icons.chevron_right),
-          ),
+          FloatingActionButton.small(heroTag: 'next', onPressed: _nextMonth, child: const Icon(Icons.chevron_right)),
         ],
       ),
     );
@@ -289,8 +294,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
-
-          // Все сотрудники — видно всем
           ListTile(
             leading: const Icon(Icons.people),
             title: const Text('Все сотрудники'),
@@ -299,8 +302,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AllUsersScreen()));
             },
           ),
-
-          // Добавить пользователя — только admin и developer
           if (role == AppRole.admin || role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.person_add),
@@ -310,30 +311,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
               },
             ),
-
-          // Запросить замену — видно всем
+          // Замены (общий экран)
           ListTile(
             leading: const Icon(Icons.swap_horiz),
-            title: const Text('Запросить замену'),
+            title: const Text('Замены'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const RequestSwapScreen()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapsScreen()));
             },
           ),
-
-          // Запросы на замену — 3 категория, admin, developer, boss
-          if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss || (appUser?.categories.contains(3) ?? false))
-            ListTile(
-              leading: const Icon(Icons.inbox),
-              title: const Text('Запросы на замену'),
-              trailing: _buildRequestsBadge(),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRequestsScreen()));
-              },
-            ),
-
-          // Инструменты разработчика — только developer
           if (role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),
@@ -343,11 +329,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const DevScreen()));
               },
             ),
-
           const Spacer(),
           const Divider(),
-
-          // Выход
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Выйти', style: TextStyle(color: Colors.red)),
@@ -361,7 +344,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             },
           ),
           const Divider(),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -369,10 +351,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               children: [
                 const Text('Календарь — главный экран', style: TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 4),
-                Text(
-                  'Версия ${VersionService.versionString}',
-                  style: const TextStyle(color: Colors.black, fontSize: 12),
-                ),
+                Text('Версия ${VersionService.versionString}', style: const TextStyle(color: Colors.black, fontSize: 12)),
               ],
             ),
           ),
@@ -380,23 +359,5 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
     );
-  }
-
-  Color _getRoleColor(AppRole role) {
-    switch (role) {
-      case AppRole.admin: return Colors.orange;
-      case AppRole.developer: return Colors.red;
-      case AppRole.boss: return Colors.teal;
-      case AppRole.user: return Colors.blue;
-    }
-  }
-
-  String _getRoleTitle(AppRole role) {
-    switch (role) {
-      case AppRole.user: return 'Пользователь';
-      case AppRole.admin: return 'Администратор';
-      case AppRole.developer: return 'Разработчик';
-      case AppRole.boss: return 'Начальник';
-    }
   }
 }

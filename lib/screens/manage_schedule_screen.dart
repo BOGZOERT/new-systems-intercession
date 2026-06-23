@@ -7,8 +7,9 @@ import '../widgets/user_avatar.dart';
 
 class ManageScheduleScreen extends StatefulWidget {
   final String date;
+  final List<String>? selectedDates;
 
-  const ManageScheduleScreen({super.key, required this.date});
+  const ManageScheduleScreen({super.key, required this.date, this.selectedDates});
 
   @override
   State<ManageScheduleScreen> createState() => _ManageScheduleScreenState();
@@ -19,6 +20,8 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  List<String> get _dates => widget.selectedDates ?? [widget.date];
+
   @override
   void initState() {
     super.initState();
@@ -28,10 +31,8 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   Future<void> _loadSchedule() async {
     setState(() => _isLoading = true);
 
-    final doc = await FirebaseFirestore.instance
-        .collection('schedule')
-        .doc(widget.date)
-        .get();
+    // Загружаем первую дату
+    final doc = await FirebaseFirestore.instance.collection('schedule').doc(widget.date).get();
 
     if (doc.exists) {
       final data = doc.data()!;
@@ -44,19 +45,19 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
 
-    await FirebaseFirestore.instance
-        .collection('schedule')
-        .doc(widget.date)
-        .set({
-      'date': widget.date,
-      'user_ids': _selectedUserIds,
-    });
+    // Сохраняем для всех выбранных дат
+    for (var date in _dates) {
+      await FirebaseFirestore.instance.collection('schedule').doc(date).set({
+        'date': date,
+        'user_ids': _selectedUserIds,
+      });
+    }
 
     setState(() => _isSaving = false);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Расписание сохранено')),
+        SnackBar(content: Text('✅ Расписание сохранено для ${_dates.length} дн.')),
       );
       Navigator.pop(context);
     }
@@ -65,26 +66,15 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   String _formatDate(String dateStr) {
     final parts = dateStr.split('-');
     if (parts.length != 3) return dateStr;
-    final months = [
-      '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
-    ];
+    final months = ['', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
     final day = int.parse(parts[2]);
     final month = int.parse(parts[1]);
     return '$day ${months[month]} ${parts[0]}';
   }
 
-  Color _getRoleColor(AppRole role) {
-    switch (role) {
-      case AppRole.admin: return Colors.orange;
-      case AppRole.developer: return Colors.red;
-      case AppRole.user: return Colors.blue;
-      case AppRole.boss: return Colors.blue;
-    }
-  }
-
   Color _getCategoryColor(int category) {
     switch (category) {
+      case 3: return Colors.teal;
       case 4: return Colors.blue;
       case 5: return Colors.green;
       case 6: return Colors.orange;
@@ -103,26 +93,18 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
     }
   }
 
-  String _getInitials(String fullName) {
-    if (fullName.isEmpty) return '?';
-    final parts = fullName.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return fullName[0].toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     final allUsers = context.watch<UsersProvider>().users;
+    final sortedUsers = List<AppUser>.from(allUsers)..sort((a, b) => a.category.compareTo(b.category));
 
-    // Сортируем по категориям
-    final sortedUsers = List<AppUser>.from(allUsers)
-      ..sort((a, b) => a.category.compareTo(b.category));
+    final title = _dates.length == 1
+        ? 'Расписание — ${_formatDate(widget.date)}'
+        : 'Расписание — ${_dates.length} дн.';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Расписание — ${_formatDate(widget.date)}'),
+        title: Text(title),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,
@@ -135,16 +117,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : sortedUsers.isEmpty
-          ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_off, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Нет пользователей', style: TextStyle(fontSize: 16, color: Colors.grey)),
-          ],
-        ),
-      )
+          ? const Center(child: Text('Нет пользователей', style: TextStyle(fontSize: 16, color: Colors.grey)))
           : ListView.builder(
         padding: const EdgeInsets.all(8),
         itemCount: sortedUsers.length,
@@ -157,10 +130,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
             child: CheckboxListTile(
               value: isSelected,
               activeColor: _getCategoryColor(user.category),
-              title: Text(
-                user.fullName.isNotEmpty ? user.fullName : user.email,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
+              title: Text(user.fullName.isNotEmpty ? user.fullName : user.email, style: const TextStyle(fontWeight: FontWeight.w500)),
               subtitle: Row(
                 children: [
                   Container(
@@ -169,27 +139,13 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
                       color: _getCategoryColor(user.category).withOpacity(0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      '${user.category} кат.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: _getCategoryColor(user.category),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: Text('${user.category} кат.', style: TextStyle(fontSize: 11, color: _getCategoryColor(user.category), fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    _getRoleTitle(user.role),
-                    style: TextStyle(fontSize: 11, color: _getRoleColor(user.role)),
-                  ),
+                  Text(_getRoleTitle(user.role), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                 ],
               ),
-              secondary: UserAvatar(
-                user: user,
-                radius: 20,
-                defaultColor: _getCategoryColor(user.category),
-              ),
+              secondary: UserAvatar(user: user, radius: 20, defaultColor: _getCategoryColor(user.category)),
               onChanged: (v) {
                 setState(() {
                   if (v == true) {
@@ -207,30 +163,16 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
           ? null
           : Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade300,
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4, offset: const Offset(0, -2))]),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Выбрано: ${_selectedUserIds.length} чел.', style: const TextStyle(fontSize: 14)),
             ElevatedButton.icon(
               onPressed: _isSaving ? null : _save,
-              icon: _isSaving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.save),
-              label: const Text('Сохранить'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
+              icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
+              label: Text('Сохранить (${_dates.length} дн.)'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
             ),
           ],
         ),
