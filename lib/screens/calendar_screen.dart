@@ -10,6 +10,7 @@ import 'all_users_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
+import 'month_summary_screen.dart';
 import 'swaps_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -293,6 +294,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text('Меню', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               ],
             ),
+          ),
+          // Итоги месяца
+          ListTile(
+            leading: const Icon(Icons.summarize),
+            title: const Text('Итоги месяца'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MonthSummaryScreen()));
+            },
           ),
           ListTile(
             leading: const Icon(Icons.people),

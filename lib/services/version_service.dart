@@ -1,14 +1,6 @@
-import 'package:package_info_plus/package_info_plus.dart';
-
 class VersionService {
-  static String? _version;
+  /// Версия приложения. Менять здесь при каждом релизе.
+  static const String version = '1.0.2-Beta';
 
-  /// Инициализировать — вызвать один раз при старте
-  static Future<void> init() async {
-    final info = await PackageInfo.fromPlatform();
-    _version = 'v${info.version}';
-  }
-
-  /// Получить строку версии
-  static String get versionString => _version ?? 'v1.0.0';
+  static String get versionString => 'v$version';
 }
