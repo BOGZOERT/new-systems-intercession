@@ -1,6 +1,6 @@
 class VersionService {
   /// Версия приложения. Менять здесь при каждом релизе.
-  static const String version = '1.0.2-Beta';
+  static const String version = '1.0.3-Beta';
 
   static String get versionString => 'v$version';
 }
