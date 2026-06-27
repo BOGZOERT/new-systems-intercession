@@ -10,11 +10,13 @@ class AuthProvider extends ChangeNotifier {
   User? _firebaseUser;
   AppUser? _appUser;
   String? _errorMessage;
+  String? _resetMessage;
   bool _isLoading = false;
 
   User? get firebaseUser => _firebaseUser;
   AppUser? get appUser => _appUser;
   String? get errorMessage => _errorMessage;
+  String? get resetMessage => _resetMessage;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _firebaseUser != null && _appUser != null;
 
@@ -82,7 +84,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Регистрация
+  /// Регистрация с несколькими категориями
   Future<bool> register(String email, String password, String fullName, int category, List<int> categories) async {
     _isLoading = true;
     _errorMessage = null;
@@ -103,7 +105,10 @@ class AuthProvider extends ChangeNotifier {
         categories: categories,
         photoUrl: '',
       );
-      await _firestore.collection('users').doc(credential.user!.uid).set(newUser.toFirestore());
+      await _firestore
+          .collection('users')
+          .doc(credential.user!.uid)
+          .set(newUser.toFirestore());
 
       _isLoading = false;
       notifyListeners();
@@ -141,6 +146,31 @@ class AuthProvider extends ChangeNotifier {
   /// Выход
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  /// Сброс пароля
+  Future<void> resetPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _resetMessage = null;
+    notifyListeners();
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      _resetMessage = 'Ссылка для сброса пароля отправлена на $email. Проверьте почту.';
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _getErrorMessage(e.code);
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Очистить сообщения об ошибках и уведомления
+  void clearError() {
+    _errorMessage = null;
+    _resetMessage = null;
+    notifyListeners();
   }
 
   String _getErrorMessage(String code) {

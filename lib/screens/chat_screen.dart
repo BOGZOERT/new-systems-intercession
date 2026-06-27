@@ -21,12 +21,50 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isSending = false;
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('messages')
+          .where('swap_request_id', isEqualTo: widget.swapRequestId)
+          .get();
+
+      final docs = snapshot.docs.map((d) {
+        final data = d.data();
+        data['doc_id'] = d.id;
+        return data;
+      }).toList();
+
+      docs.sort((a, b) {
+        final aTime = (a['created_at'] as dynamic).toDate();
+        final bTime = (b['created_at'] as dynamic).toDate();
+        return aTime.compareTo(bTime);
+      });
+
+      setState(() {
+        _messages = docs;
+        _isLoading = false;
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -39,16 +77,32 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isSending = true);
 
     try {
+      final now = DateTime.now();
+
+      final newMessage = {
+        'user_id': currentUser.uid,
+        'user_name': currentUser.fullName.isNotEmpty ? currentUser.fullName : currentUser.email,
+        'text': text,
+        'created_at': now,
+        'doc_id': 'temp_${now.millisecondsSinceEpoch}',
+      };
+
+      setState(() {
+        _messages.add(newMessage);
+      });
+
+      _messageController.clear();
+      _scrollToBottom();
+
       await FirebaseFirestore.instance.collection('messages').add({
         'swap_request_id': widget.swapRequestId,
         'user_id': currentUser.uid,
         'user_name': currentUser.fullName.isNotEmpty ? currentUser.fullName : currentUser.email,
         'text': text,
-        'created_at': DateTime.now(),
+        'created_at': now,
       });
 
-      _messageController.clear();
-      _scrollToBottom();
+      await _loadMessages();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -80,66 +134,66 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.chatTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadMessages,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Список сообщений
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('messages')
-                  .where('swap_request_id', isEqualTo: widget.swapRequestId)
-                  .orderBy('created_at', descending: false)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final docs = snapshot.data!.docs;
-
-                if (docs.isEmpty) {
-                  return const Center(
+            child: RefreshIndicator(
+              onRefresh: _loadMessages,
+              child: _isLoading
+                  ? ListView(
+                children: const [
+                  SizedBox(height: 200),
+                  Center(child: CircularProgressIndicator()),
+                ],
+              )
+                  : _messages.isEmpty
+                  ? ListView(
+                children: const [
+                  SizedBox(height: 150),
+                  Center(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
                         Text('Нет сообщений', style: TextStyle(color: Colors.grey, fontSize: 16)),
                         SizedBox(height: 8),
                         Text('Напишите первое сообщение', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        SizedBox(height: 8),
+                        Text('Потяните вниз, чтобы обновить', style: TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
+                  ),
+                ],
+              )
+                  : ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(12),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final data = _messages[index];
+                  final isMe = data['user_id'] == currentUser.uid;
+                  final userName = data['user_name'] as String? ?? '';
+                  final text = data['text'] as String? ?? '';
+                  final time = (data['created_at'] as dynamic).toDate();
+
+                  return _buildMessageBubble(
+                    isMe: isMe,
+                    userName: userName,
+                    text: text,
+                    time: time,
                   );
-                }
-
-                // Прокрутка вниз при новых сообщениях
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final isMe = data['user_id'] == currentUser.uid;
-                    final userName = data['user_name'] as String? ?? '';
-                    final text = data['text'] as String? ?? '';
-                    final time = (data['created_at'] as dynamic).toDate();
-
-                    return _buildMessageBubble(
-                      isMe: isMe,
-                      userName: userName,
-                      text: text,
-                      time: time,
-                    );
-                  },
-                );
-              },
+                },
+              ),
             ),
           ),
 
-          // Поле ввода
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -175,7 +229,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   backgroundColor: Colors.blue,
                   child: IconButton(
                     icon: _isSending
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
                         : const Icon(Icons.send, color: Colors.white, size: 20),
                     onPressed: _isSending ? null : _sendMessage,
                   ),

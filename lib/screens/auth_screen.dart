@@ -17,6 +17,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
   bool _obscurePassword = true;
+  bool _isForgotPassword = false;
   int _currentCategory = 4;
   final Map<int, bool> _categorySelections = {
     3: false,
@@ -51,6 +52,11 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+
+    // Если режим восстановления пароля
+    if (_isForgotPassword) {
+      return _buildForgotPasswordScreen(authProvider);
+    }
 
     return Scaffold(
       body: Center(
@@ -198,7 +204,27 @@ class _AuthScreenState extends State<AuthScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+
+                // Забыли пароль?
+                if (_isLogin)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _isForgotPassword = true;
+                          authProvider.clearError();
+                        });
+                      },
+                      child: const Text(
+                        'Забыли пароль?',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
 
                 SizedBox(
                   width: double.infinity,
@@ -220,6 +246,126 @@ class _AuthScreenState extends State<AuthScreen> {
                 TextButton(
                   onPressed: () => setState(() => _isLogin = !_isLogin),
                   child: Text(_isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Есть аккаунт? Войти'),
+                ),
+
+                const SizedBox(height: 24),
+
+                Text(
+                  'Версия ${VersionService.versionString}',
+                  style: const TextStyle(color: Colors.black, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Экран восстановления пароля
+  Widget _buildForgotPasswordScreen(AuthProvider authProvider) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_reset, size: 80, color: Colors.blue.shade700),
+                const SizedBox(height: 16),
+                const Text(
+                  'Восстановление пароля',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Введите email, и мы отправим ссылку для сброса пароля',
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+
+                if (authProvider.resetMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Text(
+                      authProvider.resetMessage!,
+                      style: TextStyle(color: Colors.green.shade700),
+                    ),
+                  ),
+
+                if (authProvider.errorMessage != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Text(
+                      authProvider.errorMessage!,
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.email),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Введите email';
+                    if (!v.contains('@')) return 'Некорректный email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: authProvider.isLoading
+                        ? null
+                        : () async {
+                      if (_formKey.currentState!.validate()) {
+                        await authProvider.resetPassword(_emailController.text.trim());
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: authProvider.isLoading
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Отправить ссылку', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isForgotPassword = false;
+                      authProvider.clearError();
+                    });
+                  },
+                  child: const Text('← Вернуться ко входу'),
                 ),
 
                 const SizedBox(height: 24),
