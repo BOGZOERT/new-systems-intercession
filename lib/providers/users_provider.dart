@@ -32,10 +32,20 @@ class UsersProvider extends ChangeNotifier {
   }
 
   /// Получить пользователя по uid
-  AppUser? getUserById(String uid) {
+  Future<AppUser?> getUserById(String uid) async {
+    // Сначала ищем в кэше
     try {
       return _users.firstWhere((u) => u.uid == uid);
     } catch (e) {
+      // Если нет в кэше — загружаем из Firestore
+      try {
+        final doc = await _firestore.collection('users').doc(uid).get();
+        if (doc.exists && doc.data() != null) {
+          return AppUser.fromFirestore(uid, doc.data()!);
+        }
+      } catch (e) {
+        print('Ошибка загрузки пользователя: $e');
+      }
       return null;
     }
   }

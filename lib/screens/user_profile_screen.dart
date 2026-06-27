@@ -23,6 +23,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _isLoading = false;
   int _photoVersion = 0;
   AppUser? _displayUser;
+  bool _isLoadingUser = true;
 
   bool get _isOwnProfile => widget.userId == null;
 
@@ -32,26 +33,36 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _loadUser();
   }
 
-  void _loadUser() {
+  Future<void> _loadUser() async {
+    setState(() => _isLoadingUser = true);
+
     if (_isOwnProfile) {
       _displayUser = context.read<AuthProvider>().appUser;
     } else {
-      _displayUser = context.read<UsersProvider>().getUserById(widget.userId!);
+      _displayUser = await context.read<UsersProvider>().getUserById(widget.userId!);
     }
+
+    setState(() => _isLoadingUser = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Подписываемся на изменения
     if (_isOwnProfile) {
       _displayUser = context.watch<AuthProvider>().appUser;
-    } else {
-      final usersProvider = context.watch<UsersProvider>();
-      _displayUser = usersProvider.getUserById(widget.userId!);
+    }
+
+    if (_isLoadingUser) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Профиль')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_displayUser == null) {
-      return const Scaffold(body: Center(child: Text('Пользователь не найден')));
+      return Scaffold(
+        appBar: AppBar(title: const Text('Профиль')),
+        body: const Center(child: Text('Пользователь не найден')),
+      );
     }
 
     final appUser = _displayUser!;
