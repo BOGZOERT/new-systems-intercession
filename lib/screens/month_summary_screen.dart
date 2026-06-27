@@ -147,6 +147,23 @@ class _MonthSummaryScreenState extends State<MonthSummaryScreen> {
         totalEarnings: _ratePerShift * _summary!.totalShifts,
       );
     });
+    _saveRate();
+  }
+
+  Future<void> _saveRate() async {
+    final currentUser = context.read<AuthProvider>().appUser;
+    if (currentUser == null || _summary == null) return;
+
+    final docId = '${_monthStr}_${currentUser.uid}';
+    final docRef = FirebaseFirestore.instance.collection('month_summaries').doc(docId);
+    final doc = await docRef.get();
+
+    if (doc.exists) {
+      await docRef.update({
+        'rate_per_shift': _ratePerShift,
+        'total_earnings': _summary!.totalEarnings,
+      });
+    }
   }
 
   void _prevMonth() {
@@ -182,14 +199,15 @@ class _MonthSummaryScreenState extends State<MonthSummaryScreen> {
         title: Text('Итоги — ${_getMonthName(_selectedMonth.month)} ${_selectedMonth.year}'),
         actions: [
           if (role == AppRole.developer || role == AppRole.boss)
-            IconButton(
-              icon: const Icon(Icons.edit_note),
+            TextButton.icon(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => MonthPaymentScreen(month: _monthStr)),
                 ).then((_) => _loadSummary());
               },
+              icon: const Icon(Icons.edit_note, color: Colors.white),
+              label: const Text('Итоги выходов', style: TextStyle(color: Colors.white, fontSize: 14)),
             ),
         ],
       ),

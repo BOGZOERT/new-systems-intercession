@@ -10,8 +10,8 @@ import 'all_users_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
-import 'month_summary_screen.dart';
 import 'swaps_screen.dart';
+import 'month_summary_screen.dart';
 import 'user_profile_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -38,6 +38,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final year = _currentMonth.year;
     final month = _currentMonth.month.toString().padLeft(2, '0');
     final prefix = '$year-$month';
+    final currentUser = context.read<AuthProvider>().appUser;
+    final currentUid = currentUser?.uid ?? '';
 
     final snapshot = await FirebaseFirestore.instance
         .collection('schedule')
@@ -49,7 +51,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     for (var doc in snapshot.docs) {
       final data = doc.data();
       final userIds = List<String>.from(data['user_ids'] ?? []);
-      counts[data['date']] = userIds.length;
+
+      if (currentUid.isNotEmpty) {
+        if (userIds.contains(currentUid)) {
+          counts[data['date']] = 1;
+        }
+      } else {
+        counts[data['date']] = userIds.length;
+      }
     }
 
     setState(() {
@@ -100,6 +109,80 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  void _onLongPress(String dateStr) async {
+    final role = context.read<AuthProvider>().currentRole;
+    final currentUser = context.read<AuthProvider>().appUser;
+
+    if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ManageScheduleScreen(date: dateStr)),
+      );
+      _loadSchedule();
+    } else if (currentUser != null) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Смена ${_formatDate(dateStr)}'),
+          content: const Text('Добавить себя на эту смену?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        final docRef = FirebaseFirestore.instance.collection('schedule').doc(dateStr);
+        final doc = await docRef.get();
+
+        List<String> userIds = [];
+        if (doc.exists) {
+          final data = doc.data()!;
+          userIds = List<String>.from(data['user_ids'] ?? []);
+        }
+
+        if (!userIds.contains(currentUser.uid)) {
+          userIds.add(currentUser.uid);
+          await docRef.set({
+            'date': dateStr,
+            'user_ids': userIds,
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('✅ Вы добавлены на смену')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Вы уже на этой смене')),
+            );
+          }
+        }
+        _loadSchedule();
+      }
+    }
+  }
+
+  String _formatDate(String dateStr) {
+    final parts = dateStr.split('-');
+    if (parts.length != 3) return dateStr;
+    final months = [
+      '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
+    final day = int.parse(parts[2]);
+    final month = int.parse(parts[1]);
+    return '$day ${months[month]} ${parts[0]}';
+  }
+
   String _getMonthName(int month) {
     const months = [
       '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -110,6 +193,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   String _getDateStr(int day) {
     return '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildRequestsBadge() {
+    final currentUser = context.read<AuthProvider>().appUser;
+    if (currentUser == null) return const SizedBox();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('swap_requests')
+          .where('to_user_id', isEqualTo: currentUser.uid)
+          .where('status', isEqualTo: 'pending')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        if (count == 0) return const SizedBox();
+        return Container(
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+          child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        );
+      },
+    );
   }
 
   @override
@@ -148,7 +253,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       endDrawer: _buildDrawer(context, role, appUser),
       body: Column(
         children: [
-          // Режим выбора дат (для admin/developer/boss)
           if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -210,15 +314,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         }
                       });
                     } else {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => DayTableScreen(date: dateStr)));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => DayTableScreen(date: dateStr)),
+                      ).then((_) => _loadSchedule());
                     }
                   },
                   onLongPress: _multiSelectMode
                       ? null
-                      : () async {
-                    await Navigator.push(context, MaterialPageRoute(builder: (_) => ManageScheduleScreen(date: dateStr)));
-                    _loadSchedule();
-                  },
+                      : () => _onLongPress(dateStr),
                   child: Container(
                     margin: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
@@ -226,14 +330,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ? Colors.blue.shade100
                           : isToday
                           ? Colors.blue.shade50
+                          : count > 0
+                          ? Colors.green.shade50
                           : Colors.white,
                       border: Border.all(
                         color: isSelected
                             ? Colors.blue
                             : isToday
                             ? Colors.blue
+                            : count > 0
+                            ? Colors.green
                             : Colors.grey.shade300,
-                        width: isSelected || isToday ? 2 : 1,
+                        width: isSelected || isToday || count > 0 ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -245,18 +353,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? Colors.blue : (isToday ? Colors.blue : Colors.black87),
+                            color: isSelected ? Colors.blue : (isToday ? Colors.blue : (count > 0 ? Colors.green.shade700 : Colors.black87)),
                           ),
                         ),
                         if (isSelected)
                           const Icon(Icons.check, color: Colors.blue, size: 16)
                         else if (count > 0)
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(10)),
-                            child: Text('$count', style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold)),
-                          ),
+                          const Icon(Icons.circle, color: Colors.green, size: 8),
                       ],
                     ),
                   ),
@@ -295,15 +398,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
-          // Итоги месяца
-          ListTile(
-            leading: const Icon(Icons.summarize),
-            title: const Text('Итоги месяца'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const MonthSummaryScreen()));
-            },
-          ),
           ListTile(
             leading: const Icon(Icons.people),
             title: const Text('Все сотрудники'),
@@ -321,7 +415,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
               },
             ),
-          // Замены (общий экран)
+          ListTile(
+            leading: const Icon(Icons.summarize),
+            title: const Text('Итоги месяца'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const MonthSummaryScreen()));
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.swap_horiz),
             title: const Text('Замены'),
