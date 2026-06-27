@@ -6,10 +6,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
+import '../providers/users_provider.dart';
 import '../services/cloudinary_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key});
+  final String? userId;
+
+  const UserProfileScreen({super.key, this.userId});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -19,20 +22,44 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final CloudinaryService _cloudinaryService = CloudinaryService();
   bool _isLoading = false;
   int _photoVersion = 0;
+  AppUser? _displayUser;
+
+  bool get _isOwnProfile => widget.userId == null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  void _loadUser() {
+    if (_isOwnProfile) {
+      _displayUser = context.read<AuthProvider>().appUser;
+    } else {
+      _displayUser = context.read<UsersProvider>().getUserById(widget.userId!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final appUser = authProvider.appUser;
+    // Подписываемся на изменения
+    if (_isOwnProfile) {
+      _displayUser = context.watch<AuthProvider>().appUser;
+    } else {
+      final usersProvider = context.watch<UsersProvider>();
+      _displayUser = usersProvider.getUserById(widget.userId!);
+    }
 
-    if (appUser == null) {
+    if (_displayUser == null) {
       return const Scaffold(body: Center(child: Text('Пользователь не найден')));
     }
 
+    final appUser = _displayUser!;
     final hasPhoto = appUser.photoUrl.isNotEmpty;
+    final canEdit = _isOwnProfile;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Мой профиль')),
+      appBar: AppBar(title: Text(_isOwnProfile ? 'Мой профиль' : 'Профиль сотрудника')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -41,7 +68,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               alignment: Alignment.bottomRight,
               children: [
                 InkWell(
-                  onTap: () => _pickImage(authProvider),
+                  onTap: canEdit ? () => _pickImage(appUser) : null,
                   borderRadius: BorderRadius.circular(60),
                   child: CircleAvatar(
                     key: ValueKey('photo_$_photoVersion'),
@@ -56,20 +83,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         : null,
                   ),
                 ),
-                InkWell(
-                  onTap: hasPhoto
-                      ? () => _deletePhoto(authProvider)
-                      : () => _pickImage(authProvider),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: hasPhoto ? Colors.red : Colors.blue,
-                    child: Icon(
-                      hasPhoto ? Icons.delete : Icons.camera_alt,
-                      size: 18,
-                      color: Colors.white,
+                if (canEdit)
+                  InkWell(
+                    onTap: hasPhoto ? () => _deletePhoto(appUser) : () => _pickImage(appUser),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: hasPhoto ? Colors.red : Colors.blue,
+                      child: Icon(
+                        hasPhoto ? Icons.delete : Icons.camera_alt,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             if (_isLoading)
@@ -79,7 +105,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             const SizedBox(height: 8),
             Text(
-              hasPhoto ? 'Нажмите на фото, чтобы изменить' : 'Нажмите на фото, чтобы добавить',
+              canEdit
+                  ? (hasPhoto ? 'Нажмите на фото, чтобы изменить' : 'Нажмите на фото, чтобы добавить')
+                  : 'Фото сотрудника',
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -121,7 +149,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Future<void> _pickImage(AuthProvider authProvider) async {
+  Future<void> _pickImage(AppUser appUser) async {
+    if (!_isOwnProfile) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600);
@@ -132,16 +162,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       String photoUrl;
 
       if (kIsWeb) {
-        // Веб: читаем байты
         final bytes = await picked.readAsBytes();
         photoUrl = await _cloudinaryService.uploadPhoto(bytes: bytes);
       } else {
-        // Мобильные: файл
         final file = File(picked.path);
         photoUrl = await _cloudinaryService.uploadPhoto(file: file);
       }
 
-      await authProvider.updatePhotoUrl(photoUrl);
+      await context.read<AuthProvider>().updatePhotoUrl(photoUrl);
 
       setState(() {
         _photoVersion++;
@@ -163,7 +191,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  Future<void> _deletePhoto(AuthProvider authProvider) async {
+  Future<void> _deletePhoto(AppUser appUser) async {
+    if (!_isOwnProfile) return;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -183,8 +213,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-
-    await authProvider.removePhotoUrl();
+    await context.read<AuthProvider>().removePhotoUrl();
 
     setState(() {
       _photoVersion++;
@@ -201,8 +230,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Color _getRoleColor(AppRole role) {
     switch (role) {
       case AppRole.admin: return Colors.orange;
-      case AppRole.boss: return Colors.teal;
       case AppRole.developer: return Colors.red;
+      case AppRole.boss: return Colors.teal;
       case AppRole.user: return Colors.blue;
     }
   }
@@ -210,9 +239,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String _getRoleTitle(AppRole role) {
     switch (role) {
       case AppRole.user: return 'Пользователь';
-      case AppRole.boss: return 'Начальник';
       case AppRole.admin: return 'Администратор';
       case AppRole.developer: return 'Разработчик';
+      case AppRole.boss: return 'Начальник';
     }
   }
 

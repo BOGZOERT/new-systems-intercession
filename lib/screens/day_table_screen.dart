@@ -213,7 +213,7 @@ class _DayTableScreenState extends State<DayTableScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => UserProfileScreen(),
+                          builder: (_) => UserProfileScreen(userId: user.uid),
                         ),
                       );
                     },

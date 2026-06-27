@@ -31,5 +31,14 @@ class UsersProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Получить пользователя по uid
+  AppUser? getUserById(String uid) {
+    try {
+      return _users.firstWhere((u) => u.uid == uid);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> refresh() => _loadUsers();
 }

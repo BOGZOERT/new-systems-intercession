@@ -202,7 +202,9 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const UserProfileScreen()),
+            MaterialPageRoute(
+              builder: (_) => UserProfileScreen(userId: user.uid),
+            ),
           );
         },
       ),
