@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'chat_screen.dart';
 import 'my_requests_screen.dart';
 import 'request_swap_screen.dart';
 
@@ -169,7 +170,11 @@ class _SwapResponseScreenState extends State<SwapResponseScreen> {
       });
 
       setState(() {
-        _responses = allDocs.map((d) => d.data() as Map<String, dynamic>).toList();
+        _responses = allDocs.map((d) {
+          final data = d.data() as Map<String, dynamic>;
+          data['doc_id'] = d.id;
+          return data;
+        }).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -191,6 +196,7 @@ class _SwapResponseScreenState extends State<SwapResponseScreen> {
         itemBuilder: (context, index) {
           final data = _responses[index];
           final status = data['status'] as String? ?? '';
+          final docId = data['doc_id'] as String? ?? '';
 
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -204,10 +210,30 @@ class _SwapResponseScreenState extends State<SwapResponseScreen> {
                   Text('Решение: ${status == 'accepted' ? '✅ Принято' : '❌ Отклонено'}'),
                 ],
               ),
-              trailing: Icon(
-                status == 'accepted' ? Icons.check_circle : Icons.cancel,
-                color: status == 'accepted' ? Colors.green : Colors.red,
-                size: 32,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (docId.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              swapRequestId: docId,
+                              chatTitle: 'Чат замены',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  Icon(
+                    status == 'accepted' ? Icons.check_circle : Icons.cancel,
+                    color: status == 'accepted' ? Colors.green : Colors.red,
+                    size: 32,
+                  ),
+                ],
               ),
             ),
           );

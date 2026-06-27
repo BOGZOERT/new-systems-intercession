@@ -20,15 +20,18 @@ class DayTableScreen extends StatefulWidget {
 class _DayTableScreenState extends State<DayTableScreen> {
   List<AppUser> _users = [];
   bool _isLoading = true;
-  bool _isNoteExpanded = true;
   final _noteController = TextEditingController();
   String _savedNote = '';
+
+  // Записи о заменах (только чтение)
+  List<Map<String, dynamic>> _swapNotes = [];
 
   @override
   void initState() {
     super.initState();
     _loadUsers();
     _loadNote();
+    _loadSwapNotes();
   }
 
   @override
@@ -38,10 +41,12 @@ class _DayTableScreenState extends State<DayTableScreen> {
   }
 
   Future<void> _loadNote() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('day_notes')
-        .doc(widget.date)
-        .get();
+    final currentUser = context.read<AuthProvider>().appUser;
+    if (currentUser == null) return;
+
+    // Персональная заметка: day_notes/{date}_{userId}
+    final docId = '${widget.date}_${currentUser.uid}';
+    final doc = await FirebaseFirestore.instance.collection('day_notes').doc(docId).get();
 
     if (doc.exists && doc.data() != null) {
       final data = doc.data()!;
@@ -53,9 +58,15 @@ class _DayTableScreenState extends State<DayTableScreen> {
   }
 
   Future<void> _saveNote() async {
+    final currentUser = context.read<AuthProvider>().appUser;
+    if (currentUser == null) return;
+
     final note = _noteController.text.trim();
-    await FirebaseFirestore.instance.collection('day_notes').doc(widget.date).set({
+    final docId = '${widget.date}_${currentUser.uid}';
+
+    await FirebaseFirestore.instance.collection('day_notes').doc(docId).set({
       'date': widget.date,
+      'user_id': currentUser.uid,
       'note': note,
     });
 
@@ -68,6 +79,36 @@ class _DayTableScreenState extends State<DayTableScreen> {
         const SnackBar(content: Text('✅ Заметка сохранена')),
       );
     }
+  }
+
+  Future<void> _loadSwapNotes() async {
+    // Загружаем все заметки о заменах для этой даты
+    final snapshot = await FirebaseFirestore.instance
+        .collection('day_notes')
+        .where('date', isEqualTo: widget.date)
+        .get();
+
+    final swapNotes = <Map<String, dynamic>>[];
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final note = data['note'] as String? ?? '';
+
+      // Ищем строки с заменами
+      final lines = note.split('\n');
+      for (var line in lines) {
+        if (line.contains('🔄 Замена:')) {
+          swapNotes.add({
+            'text': line,
+            'created_at': data['created_at'] ?? DateTime.now(),
+          });
+        }
+      }
+    }
+
+    setState(() {
+      _swapNotes = swapNotes;
+    });
   }
 
   Future<void> _loadUsers() async {
@@ -168,20 +209,21 @@ class _DayTableScreenState extends State<DayTableScreen> {
         onRefresh: () async {
           await _loadUsers();
           await _loadNote();
+          await _loadSwapNotes();
         },
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // Блок заметок
+            // Блок личных заметок
             Card(
               child: ExpansionTile(
                 title: Row(
                   children: [
                     const Icon(Icons.notes, color: Colors.blue),
                     const SizedBox(width: 8),
-                    const Text('Заметки', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text('Мои заметки', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     if (_savedNote.isNotEmpty)
                       Container(
                         margin: const EdgeInsets.only(left: 8),
@@ -205,10 +247,15 @@ class _DayTableScreenState extends State<DayTableScreen> {
                           controller: _noteController,
                           maxLines: 4,
                           decoration: const InputDecoration(
-                            hintText: 'Введите заметку...',
+                            hintText: 'Личная заметка (видна только вам)...',
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Эта заметка видна только вам',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -234,6 +281,34 @@ class _DayTableScreenState extends State<DayTableScreen> {
             ),
 
             const SizedBox(height: 12),
+
+            // Блок замен (только чтение)
+            if (_swapNotes.isNotEmpty)
+              Card(
+                child: ExpansionTile(
+                  title: Row(
+                    children: [
+                      const Icon(Icons.swap_horiz, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      const Text('Замены', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Spacer(),
+                      Text('${_swapNotes.length}', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    ],
+                  ),
+                  initiallyExpanded: true,
+                  children: [
+                    ...(_swapNotes.map((note) => ListTile(
+                      leading: const Icon(Icons.swap_horiz, color: Colors.orange, size: 20),
+                      title: Text(
+                        note['text'] as String? ?? '',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ))),
+                  ],
+                ),
+              ),
+
+            if (_swapNotes.isNotEmpty) const SizedBox(height: 12),
 
             // Список сотрудников
             if (_users.isEmpty)

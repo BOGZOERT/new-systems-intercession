@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
+import 'chat_screen.dart';
 
 class MyRequestsScreen extends StatefulWidget {
   const MyRequestsScreen({super.key});
@@ -70,7 +70,6 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       'new_date': newDate,
     });
 
-    // Добавляем в график на новую дату
     final fromUserId = data['from_user_id'] as String;
     final scheduleDoc = await FirebaseFirestore.instance.collection('schedule').doc(newDate).get();
     List<String> userIds = [];
@@ -83,7 +82,6 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       'user_ids': userIds,
     });
 
-    // Убираем со старой даты
     final oldDate = data['date'] as String;
     final oldDoc = await FirebaseFirestore.instance.collection('schedule').doc(oldDate).get();
     if (oldDoc.exists) {
@@ -96,7 +94,6 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       }
     }
 
-    // Добавляем заметки о замене
     await _addSwapNote(newDate, data);
     await _addSwapNote(oldDate, data);
 
@@ -107,7 +104,8 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
     final fromUserName = data['from_user_name'] as String? ?? '';
     final toUserName = data['to_user_name'] as String? ?? '';
 
-    final noteDoc = await FirebaseFirestore.instance.collection('day_notes').doc(dateStr).get();
+    final docId = '${dateStr}_swap';
+    final noteDoc = await FirebaseFirestore.instance.collection('day_notes').doc(docId).get();
     String existingNote = '';
 
     if (noteDoc.exists && noteDoc.data() != null) {
@@ -122,7 +120,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
         ? '$existingNote\n$swapNote'
         : swapNote;
 
-    await FirebaseFirestore.instance.collection('day_notes').doc(dateStr).set({
+    await FirebaseFirestore.instance.collection('day_notes').doc(docId).set({
       'date': dateStr,
       'note': updatedNote,
     });
@@ -195,6 +193,20 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            swapRequestId: docId,
+                            chatTitle: 'Чат: ${data['from_user_name']}',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.check_circle, color: Colors.green),
                     onPressed: () => _acceptWithDate(docId, data),
                   ),
@@ -204,9 +216,28 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
                   ),
                 ],
               )
-                  : Icon(
-                status == 'accepted' ? Icons.check_circle : Icons.cancel,
-                color: status == 'accepted' ? Colors.green : Colors.red,
+                  : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatScreen(
+                            swapRequestId: docId,
+                            chatTitle: 'Чат: ${data['from_user_name']}',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Icon(
+                    status == 'accepted' ? Icons.check_circle : Icons.cancel,
+                    color: status == 'accepted' ? Colors.green : Colors.red,
+                  ),
+                ],
               ),
             ),
           );
