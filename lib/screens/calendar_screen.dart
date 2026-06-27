@@ -120,35 +120,71 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
       _loadSchedule();
     } else if (currentUser != null) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('Смена ${_formatDate(dateStr)}'),
-          content: const Text('Добавить себя на эту смену?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Добавить'),
-            ),
-          ],
-        ),
-      );
+      final docRef = FirebaseFirestore.instance.collection('schedule').doc(dateStr);
+      final doc = await docRef.get();
 
-      if (confirm == true) {
-        final docRef = FirebaseFirestore.instance.collection('schedule').doc(dateStr);
-        final doc = await docRef.get();
+      List<String> userIds = [];
+      if (doc.exists) {
+        final data = doc.data()!;
+        userIds = List<String>.from(data['user_ids'] ?? []);
+      }
 
-        List<String> userIds = [];
-        if (doc.exists) {
-          final data = doc.data()!;
-          userIds = List<String>.from(data['user_ids'] ?? []);
+      final isAlreadyInShift = userIds.contains(currentUser.uid);
+
+      if (isAlreadyInShift) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('Смена ${_formatDate(dateStr)}'),
+            content: const Text('Удалить себя из этой смены?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Удалить', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+
+        if (confirm == true) {
+          userIds.remove(currentUser.uid);
+          if (userIds.isEmpty) {
+            await docRef.delete();
+          } else {
+            await docRef.update({'user_ids': userIds});
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('🗑️ Вы удалены из смены')),
+            );
+          }
+          _loadSchedule();
         }
+      } else {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('Смена ${_formatDate(dateStr)}'),
+            content: const Text('Добавить себя на эту смену?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Отмена'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Добавить'),
+              ),
+            ],
+          ),
+        );
 
-        if (!userIds.contains(currentUser.uid)) {
+        if (confirm == true) {
           userIds.add(currentUser.uid);
           await docRef.set({
             'date': dateStr,
@@ -159,14 +195,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SnackBar(content: Text('✅ Вы добавлены на смену')),
             );
           }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Вы уже на этой смене')),
-            );
-          }
+          _loadSchedule();
         }
-        _loadSchedule();
       }
     }
   }
