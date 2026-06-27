@@ -20,11 +20,54 @@ class DayTableScreen extends StatefulWidget {
 class _DayTableScreenState extends State<DayTableScreen> {
   List<AppUser> _users = [];
   bool _isLoading = true;
+  bool _isNoteExpanded = true;
+  final _noteController = TextEditingController();
+  String _savedNote = '';
 
   @override
   void initState() {
     super.initState();
     _loadUsers();
+    _loadNote();
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadNote() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('day_notes')
+        .doc(widget.date)
+        .get();
+
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      setState(() {
+        _savedNote = data['note'] as String? ?? '';
+        _noteController.text = _savedNote;
+      });
+    }
+  }
+
+  Future<void> _saveNote() async {
+    final note = _noteController.text.trim();
+    await FirebaseFirestore.instance.collection('day_notes').doc(widget.date).set({
+      'date': widget.date,
+      'note': note,
+    });
+
+    setState(() {
+      _savedNote = note;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Заметка сохранена')),
+      );
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -41,7 +84,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
       userIds = List<String>.from(data['user_ids'] ?? []);
     }
 
-    // Ждём пока UsersProvider загрузит данные
     final usersProvider = context.read<UsersProvider>();
     final allUsers = usersProvider.users;
 
@@ -123,106 +165,194 @@ class _DayTableScreenState extends State<DayTableScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadUsers,
+        onRefresh: () async {
+          await _loadUsers();
+          await _loadNote();
+        },
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _users.isEmpty
-            ? ListView(
-          children: const [
-            SizedBox(height: 200),
-            Center(
-              child: Column(
+            : ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            // Блок заметок
+            Card(
+              child: ExpansionTile(
+                title: Row(
+                  children: [
+                    const Icon(Icons.notes, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    const Text('Заметки', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    if (_savedNote.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('есть', style: TextStyle(fontSize: 10, color: Colors.green)),
+                      ),
+                  ],
+                ),
+                initiallyExpanded: _savedNote.isNotEmpty,
                 children: [
-                  Icon(Icons.person_off, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('Нет данных на эту дату', style: TextStyle(fontSize: 16, color: Colors.grey)),
-                  SizedBox(height: 8),
-                  Text('Потяните вниз, чтобы обновить', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _noteController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            hintText: 'Введите заметку...',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (_noteController.text != _savedNote)
+                              ElevatedButton.icon(
+                                onPressed: _saveNote,
+                                icon: const Icon(Icons.save, size: 18),
+                                label: const Text('Сохранить'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        )
-            : ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            final usersInCategory = grouped[category]!;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
+            const SizedBox(height: 12),
+
+            // Список сотрудников
+            if (_users.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: _getCategoryColor(category),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '$category',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$category категория',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _getCategoryColor(category)),
-                      ),
-                      const Spacer(),
-                      Text('${usersInCategory.length} чел.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                      Icon(Icons.person_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('Нет данных на эту дату', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                      SizedBox(height: 8),
+                      Text('Потяните вниз, чтобы обновить', style: TextStyle(fontSize: 13, color: Colors.grey)),
                     ],
                   ),
                 ),
-                ...usersInCategory.map((user) => Card(
-                  margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 8),
-                  child: ListTile(
-                    leading: UserAvatar(
-                      user: user,
-                      radius: 20,
-                      defaultColor: _getCategoryColor(user.category),
-                    ),
-                    title: Text(
-                      user.fullName.isNotEmpty ? user.fullName : user.email,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      _getRoleTitle(user.role),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _getCategoryColor(user.category).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${user.category} кат.',
-                        style: TextStyle(
-                          color: _getCategoryColor(user.category),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => UserProfileScreen(userId: user.uid),
-                        ),
-                      );
-                    },
+              )
+            else
+              Card(
+                child: ExpansionTile(
+                  title: Row(
+                    children: [
+                      const Icon(Icons.people, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      const Text('Сотрудники на смене', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Spacer(),
+                      Text('${_users.length} чел.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    ],
                   ),
-                )),
-                const SizedBox(height: 16),
-              ],
-            );
-          },
+                  initiallyExpanded: true,
+                  children: [
+                    ...categories.map((category) {
+                      final usersInCategory = grouped[category]!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _getCategoryColor(category),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '$category',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  '$category категория',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getCategoryColor(category),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${usersInCategory.length} чел.',
+                                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ...usersInCategory.map((user) => Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                            child: Card(
+                              margin: const EdgeInsets.symmetric(vertical: 2),
+                              child: ListTile(
+                                leading: UserAvatar(
+                                  user: user,
+                                  radius: 20,
+                                  defaultColor: _getCategoryColor(user.category),
+                                ),
+                                title: Text(
+                                  user.fullName.isNotEmpty ? user.fullName : user.email,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                subtitle: Text(
+                                  _getRoleTitle(user.role),
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                ),
+                                trailing: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _getCategoryColor(user.category).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${user.category} кат.',
+                                    style: TextStyle(
+                                      color: _getCategoryColor(user.category),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => UserProfileScreen(userId: user.uid),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          )),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

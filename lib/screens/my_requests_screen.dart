@@ -96,7 +96,36 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
       }
     }
 
+    // Добавляем заметки о замене
+    await _addSwapNote(newDate, data);
+    await _addSwapNote(oldDate, data);
+
     _loadRequests();
+  }
+
+  Future<void> _addSwapNote(String dateStr, Map<String, dynamic> data) async {
+    final fromUserName = data['from_user_name'] as String? ?? '';
+    final toUserName = data['to_user_name'] as String? ?? '';
+
+    final noteDoc = await FirebaseFirestore.instance.collection('day_notes').doc(dateStr).get();
+    String existingNote = '';
+
+    if (noteDoc.exists && noteDoc.data() != null) {
+      existingNote = noteDoc.data()!['note'] as String? ?? '';
+    }
+
+    final swapNote = '🔄 Замена: $fromUserName ↔ $toUserName';
+
+    if (existingNote.contains(swapNote)) return;
+
+    final updatedNote = existingNote.isNotEmpty
+        ? '$existingNote\n$swapNote'
+        : swapNote;
+
+    await FirebaseFirestore.instance.collection('day_notes').doc(dateStr).set({
+      'date': dateStr,
+      'note': updatedNote,
+    });
   }
 
   Future<void> _updateStatus(String docId, String status) async {
@@ -108,11 +137,6 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> {
   Widget build(BuildContext context) {
     final currentUser = context.watch<AuthProvider>().appUser;
     if (currentUser == null) return const SizedBox();
-
-    final hasAccess = currentUser.role == AppRole.admin ||
-        currentUser.role == AppRole.developer ||
-        currentUser.role == AppRole.boss ||
-        currentUser.categories.contains(3);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Запросы на замену')),
