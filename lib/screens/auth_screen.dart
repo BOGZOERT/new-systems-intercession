@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/version_service.dart';
+import 'privacy_policy_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,6 +19,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
   bool _obscurePassword = true;
   bool _isForgotPassword = false;
+  bool _privacyAccepted = false;
   int _currentCategory = 4;
   final Map<int, bool> _categorySelections = {
     3: false,
@@ -53,7 +55,6 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
 
-    // Если режим восстановления пароля
     if (_isForgotPassword) {
       return _buildForgotPasswordScreen(authProvider);
     }
@@ -163,7 +164,31 @@ class _AuthScreenState extends State<AuthScreen> {
                       if (v != null) setState(() => _currentCategory = v);
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
+
+                  // Галочка согласия
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: _privacyAccepted,
+                        onChanged: (v) => setState(() => _privacyAccepted = v ?? false),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                          ),
+                          child: const Text(
+                            'Я принимаю условия пользовательского соглашения',
+                            style: TextStyle(fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                 ],
 
                 TextFormField(
@@ -206,7 +231,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Забыли пароль?
                 if (_isLogin)
                   Align(
                     alignment: Alignment.centerRight,
@@ -262,7 +286,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // Экран восстановления пароля
   Widget _buildForgotPasswordScreen(AuthProvider authProvider) {
     return Scaffold(
       body: Center(
@@ -384,6 +407,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit(AuthProvider authProvider) async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_isLogin && !_privacyAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Примите пользовательское соглашение')),
+      );
+      return;
+    }
 
     final selectedCategories = _getSelectedCategories();
     if (!_isLogin && selectedCategories.isEmpty) {

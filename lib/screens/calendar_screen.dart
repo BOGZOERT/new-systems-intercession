@@ -13,6 +13,7 @@ import 'manage_schedule_screen.dart';
 import 'swaps_screen.dart';
 import 'month_summary_screen.dart';
 import 'user_profile_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -470,6 +471,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const DevScreen()));
               },
             ),
+          ListTile(
+            leading: const Icon(Icons.description),
+            title: const Text('Пользовательское соглашение'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
+            },
+          ),
           const Spacer(),
           const Divider(),
           ListTile(

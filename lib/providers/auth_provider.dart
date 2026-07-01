@@ -173,6 +173,28 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Проверить, принято ли пользовательское соглашение
+  Future<bool> isPrivacyPolicyAccepted() async {
+    if (_firebaseUser == null) return false;
+    try {
+      final doc = await _firestore.collection('users').doc(_firebaseUser!.uid).get();
+      if (doc.exists && doc.data() != null) {
+        return doc.data()!['privacy_accepted'] as bool? ?? false;
+      }
+    } catch (e) {
+      return false;
+    }
+    return false;
+  }
+
+  /// Принять пользовательское соглашение
+  Future<void> acceptPrivacyPolicy() async {
+    if (_firebaseUser == null) return;
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'privacy_accepted': true,
+    });
+  }
+
   String _getErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':

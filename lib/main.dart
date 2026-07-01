@@ -8,6 +8,7 @@ import 'providers/users_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/organization_screen.dart';
 import 'screens/calendar_screen.dart';
+import 'screens/privacy_policy_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,27 +51,36 @@ class _AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().firebaseUser;
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.firebaseUser;
 
     if (user == null) {
-      // Не авторизован — показываем вход
       return const AuthScreen();
     }
 
-    // Проверяем, выбрана ли организация
-    final appUser = context.watch<AuthProvider>().appUser;
+    final appUser = authProvider.appUser;
 
     if (appUser == null) {
-      // Ещё грузится
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (appUser.organizationId.isEmpty) {
-      // Организация не выбрана — показываем выбор
       return const OrganizationScreen();
     }
 
-    // Всё готово — показываем календарь
-    return const CalendarScreen();
+    return FutureBuilder<bool>(
+      future: authProvider.isPrivacyPolicyAccepted(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        if (snapshot.data != true) {
+          return const PrivacyPolicyScreen(showAcceptButton: true);
+        }
+
+        return const CalendarScreen();
+      },
+    );
   }
 }
