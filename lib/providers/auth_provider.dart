@@ -195,6 +195,16 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Переключиться в личный режим (очистить организацию)
+  Future<void> switchToPersonalMode() async {
+    if (_firebaseUser == null) return;
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'organization_id': '',
+    });
+    _appUser = _appUser?.copyWith(organizationId: '');
+    notifyListeners();
+  }
+
   String _getErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':

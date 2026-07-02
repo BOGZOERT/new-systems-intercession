@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'organization_screen.dart';
 import 'calendar_screen.dart';
 
@@ -22,7 +24,6 @@ class ChoiceScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Карточка: Организация
               Card(
                 elevation: 4,
                 child: InkWell(
@@ -71,15 +72,17 @@ class ChoiceScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Карточка: Локальный календарь
               Card(
                 elevation: 4,
                 child: InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                    );
+                  onTap: () async {
+                    await context.read<AuthProvider>().switchToPersonalMode();
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                      );
+                    }
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
