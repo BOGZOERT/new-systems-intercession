@@ -44,6 +44,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final currentUid = currentUser?.uid ?? '';
     final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
 
+    // В личном режиме — только свои смены, всегда
+    if (!isOrganization) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('schedule')
+          .where('date', isGreaterThanOrEqualTo: '$prefix-01')
+          .where('date', isLessThanOrEqualTo: '$prefix-31')
+          .get();
+
+      final counts = <String, int>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final userIds = List<String>.from(data['user_ids'] ?? []);
+        if (currentUid.isNotEmpty && userIds.contains(currentUid)) {
+          counts[data['date']] = 1;
+        }
+      }
+
+      setState(() {
+        _workerCountByDay = counts;
+      });
+      return;
+    }
+
+    // В организации
     final snapshot = await FirebaseFirestore.instance
         .collection('schedule')
         .where('date', isGreaterThanOrEqualTo: '$prefix-01')
@@ -55,13 +79,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final data = doc.data();
       final userIds = List<String>.from(data['user_ids'] ?? []);
 
-      if (currentUid.isNotEmpty) {
-        if (!isOrganization || currentUser.role == AppRole.user) {
-          if (userIds.contains(currentUid)) {
-            counts[data['date']] = 1;
-          }
-        } else {
-          counts[data['date']] = userIds.length;
+      if (currentUser.role == AppRole.user) {
+        if (userIds.contains(currentUid)) {
+          counts[data['date']] = 1;
         }
       } else {
         counts[data['date']] = userIds.length;
