@@ -42,6 +42,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final prefix = '$year-$month';
     final currentUser = context.read<AuthProvider>().appUser;
     final currentUid = currentUser?.uid ?? '';
+    final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
 
     final snapshot = await FirebaseFirestore.instance
         .collection('schedule')
@@ -55,8 +56,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final userIds = List<String>.from(data['user_ids'] ?? []);
 
       if (currentUid.isNotEmpty) {
-        if (userIds.contains(currentUid)) {
-          counts[data['date']] = 1;
+        if (!isOrganization || currentUser.role == AppRole.user) {
+          if (userIds.contains(currentUid)) {
+            counts[data['date']] = 1;
+          }
+        } else {
+          counts[data['date']] = userIds.length;
         }
       } else {
         counts[data['date']] = userIds.length;
@@ -114,8 +119,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _onLongPress(String dateStr) async {
     final role = context.read<AuthProvider>().currentRole;
     final currentUser = context.read<AuthProvider>().appUser;
+    final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
 
-    if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss) {
+    if (isOrganization && (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss)) {
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => ManageScheduleScreen(date: dateStr)),
@@ -227,33 +233,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return '${_currentMonth.year}-${_currentMonth.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
   }
 
-  Widget _buildRequestsBadge() {
-    final currentUser = context.read<AuthProvider>().appUser;
-    if (currentUser == null) return const SizedBox();
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('swap_requests')
-          .where('to_user_id', isEqualTo: currentUser.uid)
-          .where('status', isEqualTo: 'pending')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
-        if (count == 0) return const SizedBox();
-        return Container(
-          padding: const EdgeInsets.all(6),
-          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-          child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final role = authProvider.currentRole;
     final appUser = authProvider.appUser;
+    final isOrganization = appUser != null && appUser.organizationId.isNotEmpty;
 
     final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
     final firstWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
@@ -285,8 +270,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       endDrawer: _buildDrawer(context, role, appUser),
       body: Column(
         children: [
-          if (appUser != null && appUser.organizationId.isNotEmpty &&
-              (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss))
+          if (isOrganization && (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss))
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
@@ -353,9 +337,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ).then((_) => _loadSchedule());
                     }
                   },
-                  onLongPress: _multiSelectMode
-                      ? null
-                      : () => _onLongPress(dateStr),
+                  onLongPress: _multiSelectMode ? null : () => _onLongPress(dateStr),
                   child: Container(
                     margin: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
@@ -434,7 +416,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           ),
 
-          // Информация о режиме
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Container(
@@ -467,7 +448,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           const Divider(),
 
-          // Все сотрудники — только в организации
           if (isOrganization)
             ListTile(
               leading: const Icon(Icons.people),
@@ -478,7 +458,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          // Добавить пользователя — только admin/developer в организации
           if (isOrganization && (role == AppRole.admin || role == AppRole.developer))
             ListTile(
               leading: const Icon(Icons.person_add),
@@ -489,7 +468,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          // Итоги месяца — только в организации
           if (isOrganization)
             ListTile(
               leading: const Icon(Icons.summarize),
@@ -500,7 +478,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          // Замены — только в организации
           if (isOrganization)
             ListTile(
               leading: const Icon(Icons.swap_horiz),
@@ -511,7 +488,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          if (role == AppRole.developer)
+          if (isOrganization && role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),
               title: const Text('Инструменты разработчика'),
@@ -521,7 +498,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          // Сменить режим
           ListTile(
             leading: const Icon(Icons.swap_horiz, color: Colors.orange),
             title: const Text('Сменить режим'),
@@ -535,7 +511,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
             },
           ),
 
-          // Пользовательское соглашение
           ListTile(
             leading: const Icon(Icons.description),
             title: const Text('Пользовательское соглашение'),
