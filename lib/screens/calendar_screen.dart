@@ -511,7 +511,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               },
             ),
 
-          if (isOrganization && role == AppRole.developer)
+          if (role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),
               title: const Text('Инструменты разработчика'),
