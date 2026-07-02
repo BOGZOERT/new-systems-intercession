@@ -104,6 +104,7 @@ class AuthProvider extends ChangeNotifier {
         category: category,
         categories: categories,
         photoUrl: '',
+        lastActive: DateTime.now(),
       );
       await _firestore
           .collection('users')
@@ -202,6 +203,17 @@ class AuthProvider extends ChangeNotifier {
       'organization_id': '',
     });
     _appUser = _appUser?.copyWith(organizationId: '');
+    notifyListeners();
+  }
+
+  /// Обновить время последней активности
+  Future<void> updateLastActive() async {
+    if (_firebaseUser == null) return;
+    final now = DateTime.now();
+    await _firestore.collection('users').doc(_firebaseUser!.uid).update({
+      'last_active': now,
+    });
+    _appUser = _appUser?.copyWith(lastActive: now);
     notifyListeners();
   }
 

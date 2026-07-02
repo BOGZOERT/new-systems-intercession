@@ -8,8 +8,14 @@ import '../widgets/user_avatar.dart';
 class ManageScheduleScreen extends StatefulWidget {
   final String date;
   final List<String>? selectedDates;
+  final String? organizationId;
 
-  const ManageScheduleScreen({super.key, required this.date, this.selectedDates});
+  const ManageScheduleScreen({
+    super.key,
+    required this.date,
+    this.selectedDates,
+    this.organizationId,
+  });
 
   @override
   State<ManageScheduleScreen> createState() => _ManageScheduleScreenState();
@@ -31,7 +37,6 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   Future<void> _loadSchedule() async {
     setState(() => _isLoading = true);
 
-    // Загружаем первую дату
     final doc = await FirebaseFirestore.instance.collection('schedule').doc(widget.date).get();
 
     if (doc.exists) {
@@ -45,12 +50,15 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   Future<void> _save() async {
     setState(() => _isSaving = true);
 
-    // Сохраняем для всех выбранных дат
     for (var date in _dates) {
-      await FirebaseFirestore.instance.collection('schedule').doc(date).set({
+      final data = <String, dynamic>{
         'date': date,
         'user_ids': _selectedUserIds,
-      });
+      };
+      if (widget.organizationId != null) {
+        data['organization_id'] = widget.organizationId;
+      }
+      await FirebaseFirestore.instance.collection('schedule').doc(date).set(data);
     }
 
     setState(() => _isSaving = false);
@@ -66,7 +74,10 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   String _formatDate(String dateStr) {
     final parts = dateStr.split('-');
     if (parts.length != 3) return dateStr;
-    final months = ['', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    final months = [
+      '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+    ];
     final day = int.parse(parts[2]);
     final month = int.parse(parts[1]);
     return '$day ${months[month]} ${parts[0]}';
@@ -163,7 +174,10 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
           ? null
           : Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4, offset: const Offset(0, -2))]),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 4, offset: const Offset(0, -2))],
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

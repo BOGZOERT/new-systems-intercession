@@ -58,6 +58,8 @@ class _AuthGate extends StatelessWidget {
       return const AuthScreen();
     }
 
+    authProvider.updateLastActive();
+
     final appUser = authProvider.appUser;
 
     if (appUser == null) {

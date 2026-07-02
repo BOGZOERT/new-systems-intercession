@@ -34,6 +34,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _loadSchedule();
+    context.read<AuthProvider>().updateLastActive();
+  }
+
+  String? get _organizationId {
+    final currentUser = context.read<AuthProvider>().appUser;
+    final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
+    return isOrganization ? currentUser!.organizationId : null;
+  }
+
+  String get _scheduleCollection {
+    final currentUser = context.read<AuthProvider>().appUser;
+    final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
+    return isOrganization ? 'schedule' : 'personal_schedule';
   }
 
   Future<void> _loadSchedule() async {
@@ -43,44 +56,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final currentUser = context.read<AuthProvider>().appUser;
     final currentUid = currentUser?.uid ?? '';
     final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
+    final collection = _scheduleCollection;
+    final orgId = _organizationId;
 
-    // В личном режиме — только свои смены, всегда
-    if (!isOrganization) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('schedule')
-          .where('date', isGreaterThanOrEqualTo: '$prefix-01')
-          .where('date', isLessThanOrEqualTo: '$prefix-31')
-          .get();
+    var query = FirebaseFirestore.instance
+        .collection(collection)
+        .where('date', isGreaterThanOrEqualTo: '$prefix-01')
+        .where('date', isLessThanOrEqualTo: '$prefix-31');
 
-      final counts = <String, int>{};
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final userIds = List<String>.from(data['user_ids'] ?? []);
-        if (currentUid.isNotEmpty && userIds.contains(currentUid)) {
-          counts[data['date']] = 1;
-        }
-      }
-
-      setState(() {
-        _workerCountByDay = counts;
-      });
-      return;
+    if (isOrganization && orgId != null) {
+      query = query.where('organization_id', isEqualTo: orgId);
     }
 
-    // В организации
-    final snapshot = await FirebaseFirestore.instance
-        .collection('schedule')
-        .where('date', isGreaterThanOrEqualTo: '$prefix-01')
-        .where('date', isLessThanOrEqualTo: '$prefix-31')
-        .get();
+    final snapshot = await query.get();
 
     final counts = <String, int>{};
     for (var doc in snapshot.docs) {
       final data = doc.data();
       final userIds = List<String>.from(data['user_ids'] ?? []);
 
-      if (currentUser.role == AppRole.user) {
-        if (userIds.contains(currentUid)) {
+      if (!isOrganization || currentUser.role == AppRole.user) {
+        if (currentUid.isNotEmpty && userIds.contains(currentUid)) {
           counts[data['date']] = 1;
         }
       } else {
@@ -125,7 +121,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ManageScheduleScreen(date: _selectedDates.first, selectedDates: _selectedDates.toList()),
+        builder: (_) => ManageScheduleScreen(
+          date: _selectedDates.first,
+          selectedDates: _selectedDates.toList(),
+          organizationId: _organizationId,
+        ),
       ),
     ).then((_) {
       _loadSchedule();
@@ -140,15 +140,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final role = context.read<AuthProvider>().currentRole;
     final currentUser = context.read<AuthProvider>().appUser;
     final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
+    final collection = _scheduleCollection;
+    final orgId = _organizationId;
 
     if (isOrganization && (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss)) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ManageScheduleScreen(date: dateStr)),
+        MaterialPageRoute(
+          builder: (_) => ManageScheduleScreen(date: dateStr, organizationId: orgId),
+        ),
       );
       _loadSchedule();
     } else if (currentUser != null) {
-      final docRef = FirebaseFirestore.instance.collection('schedule').doc(dateStr);
+      final docRef = FirebaseFirestore.instance.collection(collection).doc(dateStr);
       final doc = await docRef.get();
 
       List<String> userIds = [];
@@ -214,10 +218,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
         if (confirm == true) {
           userIds.add(currentUser.uid);
-          await docRef.set({
+          final data = <String, dynamic>{
             'date': dateStr,
             'user_ids': userIds,
-          });
+          };
+          if (orgId != null) {
+            data['organization_id'] = orgId;
+          }
+          await docRef.set(data);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('✅ Вы добавлены на смену')),
@@ -353,7 +361,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     } else {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => DayTableScreen(date: dateStr)),
+                        MaterialPageRoute(
+                          builder: (_) => DayTableScreen(
+                            date: dateStr,
+                            organizationId: _organizationId,
+                            scheduleCollection: _scheduleCollection,
+                          ),
+                        ),
                       ).then((_) => _loadSchedule());
                     }
                   },

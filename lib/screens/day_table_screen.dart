@@ -5,13 +5,21 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/users_provider.dart';
 import '../widgets/user_avatar.dart';
+import '../widgets/online_status.dart';
 import 'manage_schedule_screen.dart';
 import 'user_profile_screen.dart';
 
 class DayTableScreen extends StatefulWidget {
   final String date;
+  final String? organizationId;
+  final String scheduleCollection;
 
-  const DayTableScreen({super.key, required this.date});
+  const DayTableScreen({
+    super.key,
+    required this.date,
+    this.organizationId,
+    this.scheduleCollection = 'schedule',
+  });
 
   @override
   State<DayTableScreen> createState() => _DayTableScreenState();
@@ -22,8 +30,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
   bool _isLoading = true;
   final _noteController = TextEditingController();
   String _savedNote = '';
-
-  // Записи о заменах (только чтение)
   List<Map<String, dynamic>> _swapNotes = [];
 
   @override
@@ -44,7 +50,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
     final currentUser = context.read<AuthProvider>().appUser;
     if (currentUser == null) return;
 
-    // Персональная заметка: day_notes/{date}_{userId}
     final docId = '${widget.date}_${currentUser.uid}';
     final doc = await FirebaseFirestore.instance.collection('day_notes').doc(docId).get();
 
@@ -82,26 +87,18 @@ class _DayTableScreenState extends State<DayTableScreen> {
   }
 
   Future<void> _loadSwapNotes() async {
-    // Загружаем все заметки о заменах для этой даты
-    final snapshot = await FirebaseFirestore.instance
-        .collection('day_notes')
-        .where('date', isEqualTo: widget.date)
-        .get();
+    final docId = '${widget.date}_swap';
+    final doc = await FirebaseFirestore.instance.collection('day_notes').doc(docId).get();
 
     final swapNotes = <Map<String, dynamic>>[];
 
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
       final note = data['note'] as String? ?? '';
-
-      // Ищем строки с заменами
       final lines = note.split('\n');
       for (var line in lines) {
         if (line.contains('🔄 Замена:')) {
-          swapNotes.add({
-            'text': line,
-            'created_at': data['created_at'] ?? DateTime.now(),
-          });
+          swapNotes.add({'text': line});
         }
       }
     }
@@ -114,14 +111,14 @@ class _DayTableScreenState extends State<DayTableScreen> {
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
 
-    final scheduleDoc = await FirebaseFirestore.instance
-        .collection('schedule')
+    final doc = await FirebaseFirestore.instance
+        .collection(widget.scheduleCollection)
         .doc(widget.date)
         .get();
 
     List<String> userIds = [];
-    if (scheduleDoc.exists) {
-      final data = scheduleDoc.data()!;
+    if (doc.exists) {
+      final data = doc.data()!;
       userIds = List<String>.from(data['user_ids'] ?? []);
     }
 
@@ -195,7 +192,10 @@ class _DayTableScreenState extends State<DayTableScreen> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ManageScheduleScreen(date: widget.date),
+                    builder: (_) => ManageScheduleScreen(
+                      date: widget.date,
+                      organizationId: widget.organizationId,
+                    ),
                   ),
                 );
                 _loadUsers();
@@ -216,7 +216,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
             : ListView(
           padding: const EdgeInsets.all(12),
           children: [
-            // Блок личных заметок
             Card(
               child: ExpansionTile(
                 title: Row(
@@ -282,7 +281,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
 
             const SizedBox(height: 12),
 
-            // Блок замен (только чтение)
             if (_swapNotes.isNotEmpty)
               Card(
                 child: ExpansionTile(
@@ -310,7 +308,6 @@ class _DayTableScreenState extends State<DayTableScreen> {
 
             if (_swapNotes.isNotEmpty) const SizedBox(height: 12),
 
-            // Список сотрудников
             if (_users.isEmpty)
               const Center(
                 child: Padding(
@@ -391,9 +388,16 @@ class _DayTableScreenState extends State<DayTableScreen> {
                                   user.fullName.isNotEmpty ? user.fullName : user.email,
                                   style: const TextStyle(fontWeight: FontWeight.w500),
                                 ),
-                                subtitle: Text(
-                                  _getRoleTitle(user.role),
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _getRoleTitle(user.role),
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    OnlineStatus(lastActive: user.lastActive),
+                                  ],
                                 ),
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

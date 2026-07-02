@@ -8,7 +8,8 @@ class AppUser {
   final int category;
   final List<int> categories;
   final String photoUrl;
-  final String organizationId; // организация, к которой привязан пользователь
+  final String organizationId;
+  final DateTime? lastActive;
 
   const AppUser({
     required this.uid,
@@ -19,6 +20,7 @@ class AppUser {
     this.categories = const [4],
     this.photoUrl = '',
     this.organizationId = '',
+    this.lastActive,
   });
 
   AppUser copyWith({
@@ -30,6 +32,7 @@ class AppUser {
     List<int>? categories,
     String? photoUrl,
     String? organizationId,
+    DateTime? lastActive,
   }) {
     return AppUser(
       uid: uid ?? this.uid,
@@ -40,6 +43,7 @@ class AppUser {
       categories: categories ?? this.categories,
       photoUrl: photoUrl ?? this.photoUrl,
       organizationId: organizationId ?? this.organizationId,
+      lastActive: lastActive ?? this.lastActive,
     );
   }
 
@@ -78,6 +82,7 @@ class AppUser {
       categories: cats,
       photoUrl: data['photo_url'] as String? ?? '',
       organizationId: data['organization_id'] as String? ?? '',
+      lastActive: (data['last_active'] as dynamic)?.toDate(),
     );
   }
 
@@ -90,6 +95,7 @@ class AppUser {
       'categories': categories,
       'photo_url': photoUrl,
       'organization_id': organizationId,
+      'last_active': lastActive,
     };
   }
 }

@@ -4,6 +4,7 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/users_provider.dart';
 import '../widgets/user_avatar.dart';
+import '../widgets/online_status.dart';
 import 'user_profile_screen.dart';
 
 class AllUsersScreen extends StatefulWidget {
@@ -167,25 +168,32 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
               ),
           ],
         ),
-        subtitle: Row(
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: _getCategoryColor(user.category).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${user.category} кат.',
-                style: TextStyle(fontSize: 11, color: _getCategoryColor(user.category), fontWeight: FontWeight.bold),
-              ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: _getCategoryColor(user.category).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${user.category} кат.',
+                    style: TextStyle(fontSize: 11, color: _getCategoryColor(user.category), fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (user.categories.length > 1)
+                  Text(
+                    'Все: ${user.categories.join(", ")}',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  ),
+              ],
             ),
-            const SizedBox(width: 8),
-            if (user.categories.length > 1)
-              Text(
-                'Все: ${user.categories.join(", ")}',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-              ),
+            const SizedBox(height: 2),
+            OnlineStatus(lastActive: user.lastActive),
           ],
         ),
         trailing: Container(
