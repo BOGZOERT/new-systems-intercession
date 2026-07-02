@@ -7,6 +7,7 @@ import '../services/version_service.dart';
 import '../widgets/user_avatar.dart';
 import 'add_user_screen.dart';
 import 'all_users_screen.dart';
+import 'choice_screen.dart';
 import 'day_table_screen.dart';
 import 'dev_screen.dart';
 import 'manage_schedule_screen.dart';
@@ -284,7 +285,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       endDrawer: _buildDrawer(context, role, appUser),
       body: Column(
         children: [
-          if (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss)
+          if (appUser != null && appUser.organizationId.isNotEmpty &&
+              (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss))
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
@@ -414,6 +416,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildDrawer(BuildContext context, AppRole role, AppUser? appUser) {
+    final isOrganization = appUser != null && appUser.organizationId.isNotEmpty;
+
     return Drawer(
       child: Column(
         children: [
@@ -429,15 +433,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ],
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.people),
-            title: const Text('Все сотрудники'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AllUsersScreen()));
-            },
+
+          // Информация о режиме
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isOrganization ? Colors.blue.shade50 : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isOrganization ? Icons.business : Icons.person,
+                    color: isOrganization ? Colors.blue : Colors.green,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isOrganization ? 'Режим организации' : 'Личный календарь',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isOrganization ? Colors.blue.shade700 : Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          if (role == AppRole.admin || role == AppRole.developer)
+          const Divider(),
+
+          // Все сотрудники — только в организации
+          if (isOrganization)
+            ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('Все сотрудники'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AllUsersScreen()));
+              },
+            ),
+
+          // Добавить пользователя — только admin/developer в организации
+          if (isOrganization && (role == AppRole.admin || role == AppRole.developer))
             ListTile(
               leading: const Icon(Icons.person_add),
               title: const Text('Добавить пользователя'),
@@ -446,23 +488,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AddUserScreen()));
               },
             ),
-          ListTile(
-            leading: const Icon(Icons.summarize),
-            title: const Text('Итоги месяца'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const MonthSummaryScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.swap_horiz),
-            title: const Text('Замены'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapsScreen()));
-            },
-          ),
-          if (role == AppRole.developer)
+
+          // Итоги месяца — только в организации
+          if (isOrganization)
+            ListTile(
+              leading: const Icon(Icons.summarize),
+              title: const Text('Итоги месяца'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MonthSummaryScreen()));
+              },
+            ),
+
+          // Замены — только в организации
+          if (isOrganization)
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: const Text('Замены'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapsScreen()));
+              },
+            ),
+
+          if (isOrganization && role == AppRole.developer)
             ListTile(
               leading: const Icon(Icons.build, color: Colors.red),
               title: const Text('Инструменты разработчика'),
@@ -471,6 +520,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const DevScreen()));
               },
             ),
+
+          // Сменить режим
+          ListTile(
+            leading: const Icon(Icons.swap_horiz, color: Colors.orange),
+            title: const Text('Сменить режим'),
+            subtitle: const Text('Организация / Личный календарь'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const ChoiceScreen()),
+              );
+            },
+          ),
+
+          // Пользовательское соглашение
           ListTile(
             leading: const Icon(Icons.description),
             title: const Text('Пользовательское соглашение'),
@@ -479,6 +544,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
             },
           ),
+
           const Spacer(),
           const Divider(),
           ListTile(

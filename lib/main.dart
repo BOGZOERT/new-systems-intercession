@@ -6,7 +6,7 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/users_provider.dart';
 import 'screens/auth_screen.dart';
-import 'screens/organization_screen.dart';
+import 'screens/choice_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/privacy_policy_screen.dart';
 
@@ -64,10 +64,6 @@ class _AuthGate extends StatelessWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (appUser.organizationId.isEmpty) {
-      return const OrganizationScreen();
-    }
-
     return FutureBuilder<bool>(
       future: authProvider.isPrivacyPolicyAccepted(),
       builder: (context, snapshot) {
@@ -79,7 +75,11 @@ class _AuthGate extends StatelessWidget {
           return const PrivacyPolicyScreen(showAcceptButton: true);
         }
 
-        return const CalendarScreen();
+        if (appUser.organizationId.isNotEmpty) {
+          return const CalendarScreen();
+        }
+
+        return const ChoiceScreen();
       },
     );
   }
