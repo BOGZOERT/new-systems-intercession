@@ -38,12 +38,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
     if (widget.organizationId != null && widget.organizationId!.isNotEmpty) {
+      // Сначала обновляем organizationId, потом загружаем данные
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<AuthProvider>().updateOrganizationId(widget.organizationId!);
+        _loadSchedule(); // ← загрузка после обновления
       });
+    } else {
+      _loadSchedule(); // ← личный режим — загружаем сразу
     }
-
-    _loadSchedule();
   }
 
   String? get _organizationId {
