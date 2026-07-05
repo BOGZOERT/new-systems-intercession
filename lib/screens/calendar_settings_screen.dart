@@ -70,7 +70,7 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('Версия'),
-            subtitle: Text('Версия ${VersionService.versionString}',),
+            subtitle: Text(VersionService.versionString),
           ),
         ],
       ),
