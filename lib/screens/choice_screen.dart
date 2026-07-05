@@ -28,7 +28,7 @@ class ChoiceScreen extends StatelessWidget {
                 elevation: 4,
                 child: InkWell(
                   onTap: () {
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const OrganizationScreen()),
                     );
@@ -78,9 +78,10 @@ class ChoiceScreen extends StatelessWidget {
                   onTap: () async {
                     await context.read<AuthProvider>().switchToPersonalMode();
                     if (context.mounted) {
-                      Navigator.pushReplacement(
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                            (route) => false,
                       );
                     }
                   },

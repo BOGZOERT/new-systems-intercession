@@ -17,6 +17,35 @@ class DevScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Карточка: миграция старых смен
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '🔄 Миграция старых смен',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Добавит organization_id = "org_tag1" во все документы schedule, где его нет.',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => _migrateSchedule(context),
+                      icon: const Icon(Icons.upgrade),
+                      label: const Text('Выполнить миграцию'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             // Карточка: очистить расписание
             Card(
               child: Padding(
@@ -28,7 +57,7 @@ class DevScreen extends StatelessWidget {
                       '🗑️ Очистить коллекцию schedule',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 8),
                     const Text(
                       'Удалит всё расписание.',
                       style: TextStyle(color: Colors.grey),
@@ -71,6 +100,40 @@ class DevScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _migrateSchedule(BuildContext context) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final snapshot = await FirebaseFirestore.instance.collection('schedule').get();
+      int updated = 0;
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (!data.containsKey('organization_id') ||
+            data['organization_id'] == null ||
+            (data['organization_id'] as String).isEmpty) {
+          await doc.reference.update({'organization_id': 'org_tag1'});
+          updated++;
+        }
+      }
+
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✅ Обновлено документов: $updated из ${snapshot.docs.length}')),
+      );
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Ошибка: $e')),
+      );
+    }
   }
 
   Future<void> _clearSchedule(BuildContext context) async {
@@ -132,7 +195,6 @@ class _BuildStats extends StatelessWidget {
 
         final docs = snapshot.data!.docs;
         final total = docs.length;
-        final cat3 = docs.where((d) => d['category'] == 3).length;
 
         if (total == 0) {
           return const Text('Нет пользователей', style: TextStyle(color: Colors.grey));
@@ -144,7 +206,6 @@ class _BuildStats extends StatelessWidget {
 
         return Column(
           children: [
-            _statRow('3 категория', '$cat3'),
             _statRow('Всего пользователей', '$total'),
             _statRow('Пользователи', '$users'),
             _statRow('Администраторы', '$admins'),

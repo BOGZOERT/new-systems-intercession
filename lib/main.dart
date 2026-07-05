@@ -78,7 +78,7 @@ class _AuthGate extends StatelessWidget {
         }
 
         if (appUser.organizationId.isNotEmpty) {
-          return const CalendarScreen();
+          return CalendarScreen(organizationId: appUser.organizationId);
         }
 
         return const ChoiceScreen();

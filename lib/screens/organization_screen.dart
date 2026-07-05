@@ -40,7 +40,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
     });
 
     try {
-      // Проверяем пароль организации
       final orgDoc = await FirebaseFirestore.instance
           .collection('organizations')
           .doc(_selectedOrgId)
@@ -61,7 +60,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
         return;
       }
 
-      // Сохраняем организацию у пользователя
       final currentUser = context.read<AuthProvider>().firebaseUser;
       if (currentUser != null) {
         await FirebaseFirestore.instance
@@ -70,11 +68,16 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
             .update({'organization_id': _selectedOrgId});
       }
 
-      // Переходим на главный экран
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const CalendarScreen()),
+          MaterialPageRoute(
+            builder: (_) => CalendarScreen(
+              key: UniqueKey(),
+              organizationId: _selectedOrgId!,
+            ),
+          ),
+              (route) => false,
         );
       }
     } catch (e) {
@@ -108,7 +111,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Ошибка
                 if (_errorMessage != null)
                   Container(
                     width: double.infinity,
@@ -125,7 +127,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
                     ),
                   ),
 
-                // Список организаций
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('organizations')
@@ -180,7 +181,6 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
 
                 const SizedBox(height: 16),
 
-                // Пароль
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,

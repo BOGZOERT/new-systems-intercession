@@ -17,7 +17,9 @@ import 'user_profile_screen.dart';
 import 'privacy_policy_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  final String? organizationId;
+
+  const CalendarScreen({super.key, this.organizationId});
 
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
@@ -33,8 +35,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+
+    if (widget.organizationId != null && widget.organizationId!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<AuthProvider>().updateOrganizationId(widget.organizationId!);
+      });
+    }
+
     _loadSchedule();
-    context.read<AuthProvider>().updateLastActive();
   }
 
   String? get _organizationId {
@@ -75,12 +83,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       final data = doc.data();
       final userIds = List<String>.from(data['user_ids'] ?? []);
 
-      if (!isOrganization || currentUser.role == AppRole.user) {
+      if (isOrganization) {
+        counts[data['date']] = userIds.length;
+      } else {
         if (currentUid.isNotEmpty && userIds.contains(currentUid)) {
           counts[data['date']] = 1;
         }
-      } else {
-        counts[data['date']] = userIds.length;
       }
     }
 
@@ -296,127 +304,145 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ],
       ),
       endDrawer: _buildDrawer(context, role, appUser),
-      body: Column(
-        children: [
-          if (isOrganization && (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss))
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: _toggleMultiSelect,
-                    icon: Icon(_multiSelectMode ? Icons.close : Icons.date_range),
-                    label: Text(_multiSelectMode ? 'Отмена' : 'Выбрать даты'),
-                  ),
-                  const Spacer(),
-                  if (_multiSelectMode && _selectedDates.isNotEmpty)
-                    ElevatedButton.icon(
-                      onPressed: _assignSelectedDates,
-                      icon: const Icon(Icons.person_add, size: 18),
-                      label: Text('Назначить (${_selectedDates.length})'),
+      body: RefreshIndicator(
+        onRefresh: _loadSchedule,
+        child: Column(
+          children: [
+            if (isOrganization && (role == AppRole.admin || role == AppRole.developer || role == AppRole.boss))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: _toggleMultiSelect,
+                      icon: Icon(_multiSelectMode ? Icons.close : Icons.date_range),
+                      label: Text(_multiSelectMode ? 'Отмена' : 'Выбрать даты'),
                     ),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Row(
-              children: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
-                  .map((d) => Expanded(
-                child: Center(
-                  child: Text(d, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13)),
-                ),
-              ))
-                  .toList(),
-            ),
-          ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(4),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: firstWeekday - 1 + daysInMonth,
-              itemBuilder: (context, index) {
-                final dayIndex = index - firstWeekday + 2;
-                if (dayIndex < 1 || dayIndex > daysInMonth) return const SizedBox();
-
-                final dateStr = _getDateStr(dayIndex);
-                final count = _workerCountByDay[dateStr] ?? 0;
-                final today = DateTime.now();
-                final isToday = dayIndex == today.day && _currentMonth.month == today.month && _currentMonth.year == today.year;
-                final isSelected = _selectedDates.contains(dateStr);
-
-                return GestureDetector(
-                  onTap: () {
-                    if (_multiSelectMode) {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedDates.remove(dateStr);
-                        } else {
-                          _selectedDates.add(dateStr);
-                        }
-                      });
-                    } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DayTableScreen(
-                            date: dateStr,
-                            organizationId: _organizationId,
-                            scheduleCollection: _scheduleCollection,
-                          ),
-                        ),
-                      ).then((_) => _loadSchedule());
-                    }
-                  },
-                  onLongPress: _multiSelectMode ? null : () => _onLongPress(dateStr),
-                  child: Container(
-                    margin: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.blue.shade100
-                          : isToday
-                          ? Colors.blue.shade50
-                          : count > 0
-                          ? Colors.green.shade50
-                          : Colors.white,
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.blue
-                            : isToday
-                            ? Colors.blue
-                            : count > 0
-                            ? Colors.green
-                            : Colors.grey.shade300,
-                        width: isSelected || isToday || count > 0 ? 2 : 1,
+                    const Spacer(),
+                    if (_multiSelectMode && _selectedDates.isNotEmpty)
+                      ElevatedButton.icon(
+                        onPressed: _assignSelectedDates,
+                        icon: const Icon(Icons.person_add, size: 18),
+                        label: Text('Назначить (${_selectedDates.length})'),
                       ),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$dayIndex',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? Colors.blue : (isToday ? Colors.blue : (count > 0 ? Colors.green.shade700 : Colors.black87)),
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(Icons.check, color: Colors.blue, size: 16)
-                        else if (count > 0)
-                          const Icon(Icons.circle, color: Colors.green, size: 8),
-                      ],
-                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Row(
+                children: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+                    .map((d) => Expanded(
+                  child: Center(
+                    child: Text(d, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13)),
                   ),
-                );
-              },
+                ))
+                    .toList(),
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(4),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  childAspectRatio: 1.1,
+                ),
+                itemCount: firstWeekday - 1 + daysInMonth,
+                itemBuilder: (context, index) {
+                  final dayIndex = index - firstWeekday + 2;
+                  if (dayIndex < 1 || dayIndex > daysInMonth) return const SizedBox();
+
+                  final dateStr = _getDateStr(dayIndex);
+                  final count = _workerCountByDay[dateStr] ?? 0;
+                  final today = DateTime.now();
+                  final isToday = dayIndex == today.day && _currentMonth.month == today.month && _currentMonth.year == today.year;
+                  final isSelected = _selectedDates.contains(dateStr);
+
+                  return GestureDetector(
+                    onTap: () {
+                      if (_multiSelectMode) {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedDates.remove(dateStr);
+                          } else {
+                            _selectedDates.add(dateStr);
+                          }
+                        });
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DayTableScreen(
+                              date: dateStr,
+                              organizationId: _organizationId,
+                              scheduleCollection: _scheduleCollection,
+                            ),
+                          ),
+                        ).then((_) => _loadSchedule());
+                      }
+                    },
+                    onLongPress: _multiSelectMode ? null : () => _onLongPress(dateStr),
+                    child: Container(
+                      margin: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.blue.shade100
+                            : isToday
+                            ? Colors.blue.shade50
+                            : count > 0
+                            ? Colors.green.shade50
+                            : Colors.white,
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.blue
+                              : isToday
+                              ? Colors.blue
+                              : count > 0
+                              ? Colors.green
+                              : Colors.grey.shade300,
+                          width: isSelected || isToday || count > 0 ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$dayIndex',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? Colors.blue : (isToday ? Colors.blue : (count > 0 ? Colors.green.shade700 : Colors.black87)),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check, color: Colors.blue, size: 16)
+                          else if (count > 0)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green.shade800,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: _multiSelectMode
           ? null

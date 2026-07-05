@@ -206,6 +206,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Обновить organizationId локально (без запроса в Firestore, т.к. уже обновлён)
+  void updateOrganizationId(String orgId) {
+    _appUser = _appUser?.copyWith(organizationId: orgId);
+    notifyListeners();
+  }
+
   /// Обновить время последней активности
   Future<void> updateLastActive() async {
     if (_firebaseUser == null) return;
