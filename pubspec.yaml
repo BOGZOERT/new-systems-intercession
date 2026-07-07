@@ -23,6 +23,7 @@ dependencies:
   firebase_storage: ^13.4.3
   cloudinary: ^1.2.0
   package_info_plus: ^10.1.0
+  flame: ^1.37.0
 
 dev_dependencies:
   flutter_test:

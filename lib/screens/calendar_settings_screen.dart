@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:new_systems_intercession/services/version_service.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_service.dart';
+import '../services/version_service.dart';
+import 'iso_game_screen.dart';
 
 class CalendarSettingsScreen extends StatefulWidget {
   const CalendarSettingsScreen({super.key});
@@ -74,12 +75,29 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
           const Divider(),
           const Padding(
             padding: EdgeInsets.all(16),
+            child: Text('Игра', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.videogame_asset),
+            title: const Text('Изометрическая змейка'),
+            subtitle: const Text('Развлечься на смене'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IsoGameScreen()),
+              );
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.all(16),
             child: Text('О приложении', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Версия'),
-            subtitle: Text(VersionService.version),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('Версия'),
+            subtitle: Text(VersionService.versionString),
           ),
         ],
       ),

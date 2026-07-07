@@ -1,0 +1,1 @@
+enum BuildingType { none, house, sawmill, storage, castle }

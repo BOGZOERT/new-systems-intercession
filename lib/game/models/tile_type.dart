@@ -1,0 +1,1 @@
+enum TileType { grass, forest, mountain, river, field, plain }

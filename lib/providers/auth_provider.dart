@@ -12,6 +12,7 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _resetMessage;
   bool _isLoading = false;
+  DateTime? _lastActiveUpdated;
 
   User? get firebaseUser => _firebaseUser;
   AppUser? get appUser => _appUser;
@@ -212,10 +213,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Обновить время последней активности
+  /// Обновить время последней активности (не чаще раза в минуту)
   Future<void> updateLastActive() async {
     if (_firebaseUser == null) return;
+
     final now = DateTime.now();
+    if (_lastActiveUpdated != null && now.difference(_lastActiveUpdated!).inSeconds < 60) {
+      return;
+    }
+
+    _lastActiveUpdated = now;
     await _firestore.collection('users').doc(_firebaseUser!.uid).update({
       'last_active': now,
     });
