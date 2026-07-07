@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/users_provider.dart';
+import 'services/theme_service.dart';
 import 'screens/auth_screen.dart';
 import 'screens/choice_screen.dart';
 import 'screens/calendar_screen.dart';
@@ -26,6 +27,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => UsersProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeService()),
       ],
       child: const MyApp(),
     ),
@@ -37,10 +39,22 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = context.watch<ThemeService>();
+
     return MaterialApp(
       title: 'Таблица смен',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
+      themeMode: themeService.themeMode,
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.light,
+        colorSchemeSeed: Colors.blue,
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorSchemeSeed: Colors.blue,
+      ),
       home: const _AuthGate(),
     );
   }

@@ -68,6 +68,11 @@ class _OrganizationScreenState extends State<OrganizationScreen> {
             .update({'organization_id': _selectedOrgId});
       }
 
+      print('=== ВХОД В ОРГАНИЗАЦИЮ ===');
+      print('selectedOrgId: $_selectedOrgId');
+      print('currentUser uid: ${currentUser?.uid}');
+      print('mounted: $mounted');
+
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,

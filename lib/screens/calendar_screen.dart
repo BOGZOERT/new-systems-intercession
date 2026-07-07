@@ -35,16 +35,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    print('=== CalendarScreen initState ===');
+    print('widget.organizationId: ${widget.organizationId}');
+    print('AuthProvider appUser: ${context.read<AuthProvider>().appUser?.organizationId}');
+
     _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
     if (widget.organizationId != null && widget.organizationId!.isNotEmpty) {
-      // Сначала обновляем organizationId, потом загружаем данные
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<AuthProvider>().updateOrganizationId(widget.organizationId!);
-        _loadSchedule(); // ← загрузка после обновления
+        _loadSchedule();
       });
     } else {
-      _loadSchedule(); // ← личный режим — загружаем сразу
+      _loadSchedule();
     }
   }
 
@@ -69,6 +72,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isOrganization = currentUser != null && currentUser.organizationId.isNotEmpty;
     final collection = _scheduleCollection;
     final orgId = _organizationId;
+
+    print('=== _loadSchedule ===');
+    print('collection: $collection');
+    print('orgId: $orgId');
+    print('isOrganization: $isOrganization');
 
     var query = FirebaseFirestore.instance
         .collection(collection)

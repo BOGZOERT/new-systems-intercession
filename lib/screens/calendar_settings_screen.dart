@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-
-import '../services/version_service.dart';
+import 'package:new_systems_intercession/services/version_service.dart';
+import 'package:provider/provider.dart';
+import '../services/theme_service.dart';
 
 class CalendarSettingsScreen extends StatefulWidget {
   const CalendarSettingsScreen({super.key});
@@ -15,6 +16,8 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = context.watch<ThemeService>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки календаря')),
       body: ListView(
@@ -22,6 +25,12 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
           const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Отображение', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          SwitchListTile(
+            title: const Text('Тёмная тема'),
+            subtitle: const Text('Тёмный режим отображения'),
+            value: themeService.isDarkMode,
+            onChanged: (_) => themeService.toggleTheme(),
           ),
           SwitchListTile(
             title: const Text('Начало недели с понедельника'),
@@ -67,10 +76,10 @@ class _CalendarSettingsScreenState extends State<CalendarSettingsScreen> {
             padding: EdgeInsets.all(16),
             child: Text('О приложении', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
           ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Версия'),
-            subtitle: Text(VersionService.versionString),
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('Версия'),
+            subtitle: Text(VersionService.version),
           ),
         ],
       ),

@@ -78,10 +78,9 @@ class ChoiceScreen extends StatelessWidget {
                   onTap: () async {
                     await context.read<AuthProvider>().switchToPersonalMode();
                     if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                            (route) => false,
                       );
                     }
                   },
